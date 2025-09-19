@@ -6,6 +6,7 @@ import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { DocumentDuplicateIcon } from './icons/DocumentDuplicateIcon';
 import TicketActions from './TicketActions';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
+import { PaperClipIcon } from './icons/PaperClipIcon';
 
 interface TicketTableProps {
   tickets: (Ticket & { score?: number })[];
@@ -42,6 +43,8 @@ const toPersianDigits = (n: string | number): string => {
 
 const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll }) => {
   
+  const allOnPageSelected = tickets.length > 0 && tickets.every(t => selectedIds.includes(t.id));
+  
   const getCustomerName = (customerId: number) => customers.find(c => c.id === customerId)?.companyName || 'N/A';
   const getAssigneeName = (username: string) => {
       if (!username) return '-';
@@ -70,7 +73,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                 <div className="flex items-center">
                     <input id="checkbox-all" type="checkbox" 
                         onChange={onToggleSelectAll} 
-                        checked={tickets.length > 0 && selectedIds.length === tickets.length}
+                        checked={allOnPageSelected}
                         className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"/>
                     <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
                 </div>
@@ -112,7 +115,12 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                     </span>
                   )}
                 </td>
-                <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => onEdit(ticket)}>{ticket.title}</td>
+                <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => onEdit(ticket)}>
+                    <div className="flex items-center gap-2">
+                        {ticket.attachments && ticket.attachments.length > 0 && <PaperClipIcon />}
+                        <span>{ticket.title}</span>
+                    </div>
+                </td>
                 <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>{getCustomerName(ticket.customerId)}</td>
                 <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>
                     <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-bold rounded-full ${statusStyles[ticket.status]?.color || ''}`}>
@@ -133,7 +141,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {tickets.map(ticket => (
           <div key={ticket.id} className="bg-white p-4 space-y-3 relative">
-             <div className="absolute top-2 left-2">
+             <div className="absolute top-4 left-4">
                 <input id={`checkbox-mobile-${ticket.id}`} type="checkbox" 
                     checked={selectedIds.includes(ticket.id)} 
                     onChange={() => onToggleSelect(ticket.id)} 
@@ -143,7 +151,10 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
             <div onClick={() => onEdit(ticket)}>
                 <div className="flex items-start justify-between">
                     <div>
-                        <p className="font-bold text-slate-800">{ticket.title}</p>
+                        <p className="font-bold text-slate-800 flex items-center gap-2">
+                          {ticket.attachments && ticket.attachments.length > 0 && <PaperClipIcon />}
+                          <span>{ticket.title}</span>
+                        </p>
                         <p className="text-sm text-gray-500">{getCustomerName(ticket.customerId)}</p>
                         <p className={`font-mono text-xs pt-1 border-r-2 pr-2 mt-1 ${priorityStyles[ticket.priority]}`}>{toPersianDigits(ticket.ticketNumber)}</p>
                     </div>

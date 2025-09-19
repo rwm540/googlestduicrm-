@@ -124,12 +124,16 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
   };
 
   const handleToggleSelectAll = () => {
-    if (selectedIds.length === paginatedTickets.length) {
-        setSelectedIds([]);
+    const paginatedIds = paginatedTickets.map(t => t.id);
+    const allOnPageSelected = paginatedIds.length > 0 && paginatedIds.every(id => selectedIds.includes(id));
+    if (allOnPageSelected) {
+        setSelectedIds(prev => prev.filter(id => !paginatedIds.includes(id)));
     } else {
-        setSelectedIds(paginatedTickets.map(t => t.id));
+        setSelectedIds(prev => [...new Set([...prev, ...paginatedIds])]);
     }
   };
+
+  const allOnPageSelected = paginatedTickets.length > 0 && paginatedTickets.every(t => selectedIds.includes(t.id));
 
   return (
     <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
@@ -139,7 +143,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
           <p className="text-gray-500 mt-1">تیکت های ارجاع داده شده به شما در این بخش قابل مشاهده است.</p>
         </div>
 
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
             <input
               type="text"
               placeholder="جستجوی تیکت (شماره، عنوان، مشتری)..."
@@ -156,6 +160,16 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
                     <span>ارجاع ({toPersianDigits(selectedIds.length)}) مورد</span>
                  </button>
             )}
+        </div>
+        <div className="flex items-center lg:hidden mb-4">
+            <input 
+                id="checkbox-all-mobile-referrals" 
+                type="checkbox"
+                onChange={handleToggleSelectAll}
+                checked={allOnPageSelected}
+                className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" 
+            />
+            <label htmlFor="checkbox-all-mobile-referrals" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
         </div>
 
         <TicketTable

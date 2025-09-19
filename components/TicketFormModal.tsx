@@ -1,8 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel } from '../types';
 import Modal from './Modal';
 import Alert from './Alert';
 import { formatJalaaliDateTime } from '../utils/dateFormatter';
+import { FileUploadIcon } from './icons/FileUploadIcon';
+import { TrashIcon } from './icons/TrashIcon';
+import { PaperClipIcon } from './icons/PaperClipIcon';
 
 interface TicketFormModalProps {
   isOpen: boolean;
@@ -50,6 +54,7 @@ const textareaClass = `${inputClass} min-h-[120px]`;
 
 const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSave, ticket, customers, users, currentUser }) => {
   const [formData, setFormData] = useState<Ticket | Omit<Ticket, 'id'>>(() => getInitialState(currentUser));
+  const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
   const isReadOnly = ticket ? (new Date().getTime() > new Date(ticket.editableUntil).getTime() || ticket.status === 'اتمام یافته') : false;
@@ -67,6 +72,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     } else {
         setTimeout(() => {
             setFormData(getInitialState(currentUser));
+            setNewAttachments([]);
             setErrors([]);
         }, 300);
     }
@@ -75,6 +81,45 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files) return;
+      
+      const files = Array.from(e.target.files);
+      const validationErrors: string[] = [];
+      const validFiles: File[] = [];
+
+      files.forEach(file => {
+        if (!file.type.startsWith('image/')) {
+          validationErrors.push(`فایل "${file.name}" یک تصویر نیست.`);
+          return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          validationErrors.push(`حجم فایل "${file.name}" بیشتر از ۲ مگابایت است.`);
+          return;
+        }
+        validFiles.push(file);
+      });
+
+      if (validationErrors.length > 0) {
+        setErrors(prev => [...prev, ...validationErrors]);
+      }
+
+      setNewAttachments(prev => [...prev, ...validFiles]);
+      e.target.value = ''; // Reset input to allow re-selecting the same file
+  };
+
+  const handleRemoveAttachment = (nameToRemove: string) => {
+      const isNew = newAttachments.some(f => f.name === nameToRemove);
+      if (isNew) {
+        setNewAttachments(prev => prev.filter(f => f.name !== nameToRemove));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          attachments: prev.attachments.filter(name => name !== nameToRemove)
+        }));
+      }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -92,10 +137,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     const dataToSave = {
         ...formData,
         lastUpdateDate: formatJalaaliDateTime(new Date()),
+        attachments: [...formData.attachments, ...newAttachments.map(f => f.name)],
     };
     onSave(dataToSave);
   };
   
+  const allAttachmentNames = [...formData.attachments, ...newAttachments.map(f => f.name)];
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl">
       <form onSubmit={handleSubmit} className="flex flex-col h-[90vh]">
@@ -162,6 +210,41 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
               </select>
             </div>
           </div>
+          
+          <div>
+              <label className={labelClass}>فایل‌های پیوست (تصویر، حداکثر ۲ مگابایت)</label>
+              {!isReadOnly && (
+                <div className="mt-2 mb-4">
+                  <input type="file" id="file-upload" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
+                  <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium">
+                    <FileUploadIcon />
+                    <span>افزودن فایل</span>
+                  </label>
+                </div>
+              )}
+               {allAttachmentNames.length > 0 ? (
+                <div className="mt-4 border rounded-md p-3 bg-gray-50 max-h-40 overflow-y-auto space-y-2">
+                    {allAttachmentNames.map((name, index) => (
+                      <div key={`${name}-${index}`} className="flex items-center justify-between p-2 bg-white border rounded-md text-sm">
+                        <div className="flex items-center gap-2 text-slate-700 truncate">
+                            <PaperClipIcon />
+                            <span className="truncate">{name}</span>
+                        </div>
+                        {!isReadOnly && (
+                          <button type="button" onClick={() => handleRemoveAttachment(name)} className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 transition-colors">
+                            <TrashIcon />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                </div>
+               ) : (
+                <div className="mt-2 text-center text-sm text-gray-400 p-4 border border-dashed rounded-md">
+                    هیچ فایلی پیوست نشده است.
+                </div>
+               )}
+          </div>
+
         </div>
 
         <div className="p-4 bg-gray-50 border-t flex justify-end items-center flex-shrink-0">

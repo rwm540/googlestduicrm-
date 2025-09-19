@@ -8,6 +8,9 @@ interface PurchaseContractTableProps {
   contracts: PurchaseContract[];
   onEdit: (contract: PurchaseContract) => void;
   onDelete: (contractId: number) => void;
+  selectedIds: number[];
+  onToggleSelect: (id: number) => void;
+  onToggleSelectAll: () => void;
 }
 
 const statusStyles: { [key in ContractStatus]: string } = {
@@ -17,7 +20,9 @@ const statusStyles: { [key in ContractStatus]: string } = {
   'لغو شده': 'bg-red-100 text-red-700',
 };
 
-const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts, onEdit, onDelete }) => {
+const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll }) => {
+  const allOnPageSelected = contracts.length > 0 && contracts.every(c => selectedIds.includes(c.id));
+
   if (contracts.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 p-16 text-center">
@@ -34,7 +39,16 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
         {contracts.map(contract => {
             const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
             return (
-              <div key={contract.id} className="bg-white p-4 space-y-3">
+              <div key={contract.id} className="bg-white p-4 space-y-3 relative">
+                  <div className="absolute top-4 left-4 z-10">
+                    <input 
+                      type="checkbox"
+                      className="h-5 w-5 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"
+                      checked={selectedIds.includes(contract.id)}
+                      onChange={() => onToggleSelect(contract.id)}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  </div>
                   <div className="flex items-start justify-between">
                       <div>
                           <p className="font-bold text-slate-800">{contract.customerName}</p>
@@ -75,6 +89,15 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
         <table className="w-full text-sm text-right text-gray-600">
           <thead className="text-xs text-cyan-700 font-semibold uppercase bg-slate-50 tracking-wider">
             <tr>
+              <th scope="col" className="p-4">
+                <div className="flex items-center">
+                  <input id="checkbox-all-purchase" type="checkbox"
+                    onChange={onToggleSelectAll}
+                    checked={allOnPageSelected}
+                    className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" />
+                  <label htmlFor="checkbox-all-purchase" className="sr-only">checkbox</label>
+                </div>
+              </th>
               <th scope="col" className="px-6 py-4">شناسه قرارداد</th>
               <th scope="col" className="px-6 py-4">مشتری</th>
               <th scope="col" className="px-6 py-4">نوع</th>
@@ -88,6 +111,15 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
               const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
               return (
               <tr key={contract.id} className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200">
+                <td className="w-4 p-4">
+                  <div className="flex items-center">
+                    <input id={`checkbox-purchase-${contract.id}`} type="checkbox"
+                      checked={selectedIds.includes(contract.id)}
+                      onChange={() => onToggleSelect(contract.id)}
+                      className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" />
+                    <label htmlFor={`checkbox-purchase-${contract.id}`} className="sr-only">checkbox</label>
+                  </div>
+                </td>
                 <td className="px-6 py-4 font-mono font-medium text-slate-800">{toPersianDigits(contract.contractId)}</td>
                 <td className="px-6 py-4">{contract.customerName}</td>
                 <td className="px-6 py-4">{contract.contractType}</td>

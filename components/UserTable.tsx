@@ -8,6 +8,9 @@ interface UserTableProps {
   users: User[];
   onEdit: (user: User) => void;
   onDelete: (userId: number) => void;
+  selectedIds: number[];
+  onToggleSelect: (id: number) => void;
+  onToggleSelectAll: () => void;
 }
 
 const menuConfig: Record<MenuItemId, { label: string; color: string }> = {
@@ -20,7 +23,9 @@ const menuConfig: Record<MenuItemId, { label: string; color: string }> = {
   referrals: { label: 'ارجاعات', color: 'bg-amber-100 text-amber-700' },
 };
 
-const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
+const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll }) => {
+  const allOnPageSelected = users.length > 0 && users.every(u => selectedIds.includes(u.id));
+
   if (users.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 p-16 text-center">
@@ -35,7 +40,16 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
       {/* Mobile & Tablet Card View (for screens smaller than lg) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {users.map(user => (
-          <div key={user.id} className="bg-white p-4 space-y-3">
+          <div key={user.id} className="bg-white p-4 space-y-3 relative">
+             <div className="absolute top-4 left-4 z-10">
+              <input 
+                type="checkbox"
+                className="h-5 w-5 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"
+                checked={selectedIds.includes(user.id)}
+                onChange={() => onToggleSelect(user.id)}
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
             <div className="flex items-center gap-4">
               <Avatar name={`${user.firstName} ${user.lastName}`} />
               <div>
@@ -91,6 +105,15 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
         <table className="w-full text-sm text-right text-gray-600">
           <thead className="text-xs text-cyan-700 font-semibold uppercase bg-slate-50 tracking-wider">
             <tr>
+              <th scope="col" className="p-4">
+                <div className="flex items-center">
+                  <input id="checkbox-all-users" type="checkbox"
+                    onChange={onToggleSelectAll}
+                    checked={allOnPageSelected}
+                    className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" />
+                  <label htmlFor="checkbox-all-users" className="sr-only">checkbox</label>
+                </div>
+              </th>
               <th scope="col" className="px-6 py-4">کاربر</th>
               <th scope="col" className="px-6 py-4">نام کاربری</th>
               <th scope="col" className="px-6 py-4">رمز عبور</th>
@@ -102,6 +125,15 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
           <tbody>
             {users.map(user => (
               <tr key={user.id} className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200">
+                <td className="w-4 p-4">
+                  <div className="flex items-center">
+                    <input id={`checkbox-user-${user.id}`} type="checkbox"
+                      checked={selectedIds.includes(user.id)}
+                      onChange={() => onToggleSelect(user.id)}
+                      className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" />
+                    <label htmlFor={`checkbox-user-${user.id}`} className="sr-only">checkbox</label>
+                  </div>
+                </td>
                 <td className="px-6 py-4">
                    <div className="flex items-center gap-4">
                      <Avatar name={`${user.firstName} ${user.lastName}`} />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
@@ -40,6 +39,7 @@ function App() {
   };
 
   const handleDeleteUser = (userId: number) => setUsers(users.filter(u => u.id !== userId));
+  const handleDeleteUsers = (userIds: number[]) => setUsers(users.filter(u => !userIds.includes(u.id)));
   
   const handleSaveCustomer = (customerData: Customer | Omit<Customer, 'id'>) => {
     if ('id' in customerData) setCustomers(customers.map(c => c.id === customerData.id ? { ...c, ...customerData } : c));
@@ -47,6 +47,7 @@ function App() {
   };
 
   const handleDeleteCustomer = (customerId: number) => setCustomers(customers.filter(c => c.id !== customerId));
+  const handleDeleteCustomers = (customerIds: number[]) => setCustomers(customers.filter(c => !customerIds.includes(c.id)));
 
   const handleSavePurchaseContract = (contractData: PurchaseContract | Omit<PurchaseContract, 'id'>) => {
     if ('id' in contractData) setPurchaseContracts(purchaseContracts.map(c => c.id === contractData.id ? { ...c, ...contractData } : c));
@@ -54,6 +55,7 @@ function App() {
   };
 
   const handleDeletePurchaseContract = (contractId: number) => setPurchaseContracts(purchaseContracts.filter(c => c.id !== contractId));
+  const handleDeletePurchaseContracts = (contractIds: number[]) => setPurchaseContracts(purchaseContracts.filter(c => !contractIds.includes(c.id)));
   
   const handleSaveSupportContract = (contractData: SupportContract | Omit<SupportContract, 'id'>) => {
     if ('id' in contractData) setSupportContracts(supportContracts.map(c => c.id === contractData.id ? { ...c, ...contractData } : c));
@@ -61,6 +63,7 @@ function App() {
   };
 
   const handleDeleteSupportContract = (contractId: number) => setSupportContracts(supportContracts.filter(c => c.id !== contractId));
+  const handleDeleteSupportContracts = (contractIds: number[]) => setSupportContracts(supportContracts.filter(c => !contractIds.includes(c.id)));
   
   const handleSaveTicket = (ticketData: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => {
       const now = new Date();
@@ -188,13 +191,13 @@ function App() {
     
     switch (activePage) {
       case 'dashboard': return <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />;
-      case 'users': return <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} />;
-      case 'customers': return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} />;
+      case 'users': return <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteUsers} />;
+      case 'customers': return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteCustomers} />;
       case 'contracts': return (
         <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
            <main className="max-w-7xl mx-auto">
-            <div className="mb-8"><PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} /></div>
-            <div className="mt-12"><SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} /></div>
+            <div className="mb-8"><PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeletePurchaseContracts} /></div>
+            <div className="mt-12"><SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteSupportContracts} /></div>
           </main>
         </div>
       );
