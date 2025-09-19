@@ -1,0 +1,159 @@
+import React from 'react';
+import { User, MenuItemId, UserRole } from '../types';
+import { EditIcon } from './icons/EditIcon';
+import { TrashIcon } from './icons/TrashIcon';
+import Avatar from './Avatar';
+
+interface UserTableProps {
+  users: User[];
+  onEdit: (user: User) => void;
+  onDelete: (userId: number) => void;
+}
+
+const menuConfig: Record<MenuItemId, { label: string; color: string }> = {
+  dashboard: { label: 'داشبورد', color: 'bg-gray-100 text-gray-700' },
+  customers: { label: 'مشتریان', color: 'bg-cyan-100 text-cyan-700' },
+  users: { label: 'کاربران', color: 'bg-indigo-100 text-indigo-700' },
+  contracts: { label: 'قرارداد ها', color: 'bg-emerald-100 text-emerald-700' },
+  tickets: { label: 'تیکت ها', color: 'bg-rose-100 text-rose-700' },
+  reports: { label: 'گزارشات', color: 'bg-blue-100 text-blue-700' },
+  referrals: { label: 'ارجاعات', color: 'bg-amber-100 text-amber-700' },
+};
+
+const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete }) => {
+  if (users.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 p-16 text-center">
+        <h3 className="text-xl font-semibold text-slate-700">هیچ کاربری یافت نشد</h3>
+        <p className="text-gray-500 mt-2">برای شروع، یک کاربر جدید از طریق دکمه "کاربر جدید" اضافه کنید.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
+      {/* Mobile & Tablet Card View (for screens smaller than lg) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
+        {users.map(user => (
+          <div key={user.id} className="bg-white p-4 space-y-3">
+            <div className="flex items-center gap-4">
+              <Avatar name={`${user.firstName} ${user.lastName}`} />
+              <div>
+                <p className="font-bold text-slate-800">{user.firstName} {user.lastName}</p>
+                <p className="text-sm text-gray-500">@{user.username}</p>
+              </div>
+            </div>
+            <div className="text-sm space-y-2 pt-2 border-t border-gray-100">
+                <div>
+                    <span className="font-semibold text-gray-600">نقش: </span>
+                    <span className="text-gray-500">{user.role}</span>
+                </div>
+                <div>
+                    <span className="font-semibold text-gray-600">رمز عبور: </span>
+                    <span className="text-gray-500 font-mono">{user.password}</span>
+                </div>
+                <div>
+                    <span className="font-semibold text-gray-600">دسترسی‌ها: </span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                        {user.accessibleMenus.map(menuId => (
+                            <span key={menuId} className={`px-2 py-0.5 text-xs font-bold rounded-full ${menuConfig[menuId]?.color || ''}`}>
+                                {menuConfig[menuId]?.label || menuId}
+                            </span>
+                        ))}
+                         {user.accessibleMenus.length === 0 && <span className="text-xs text-gray-400">بدون دسترسی</span>}
+                    </div>
+                </div>
+            </div>
+            <div className="flex items-center justify-end pt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onEdit(user)}
+                  className="p-2 text-yellow-500 hover:text-yellow-600 rounded-full hover:bg-yellow-100 transition-colors"
+                  aria-label={`ویرایش ${user.firstName} ${user.lastName}`}
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  onClick={() => onDelete(user.id)}
+                  className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                  aria-label={`حذف ${user.firstName} ${user.lastName}`}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View (for lg screens and up) */}
+      <div className="hidden lg:block overflow-x-auto">
+        <table className="w-full text-sm text-right text-gray-600">
+          <thead className="text-xs text-cyan-700 font-semibold uppercase bg-slate-50 tracking-wider">
+            <tr>
+              <th scope="col" className="px-6 py-4">کاربر</th>
+              <th scope="col" className="px-6 py-4">نام کاربری</th>
+              <th scope="col" className="px-6 py-4">رمز عبور</th>
+              <th scope="col" className="px-6 py-4">نقش</th>
+              <th scope="col" className="px-6 py-4">دسترسی‌ها</th>
+              <th scope="col" className="px-6 py-4 text-left">اقدامات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(user => (
+              <tr key={user.id} className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200">
+                <td className="px-6 py-4">
+                   <div className="flex items-center gap-4">
+                     <Avatar name={`${user.firstName} ${user.lastName}`} />
+                     <div>
+                       <div className="font-medium text-slate-800">{user.firstName} {user.lastName}</div>
+                     </div>
+                   </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="font-mono text-gray-500">@{user.username}</span>
+                </td>
+                 <td className="px-6 py-4">
+                  <span className="font-mono text-gray-500">{user.password}</span>
+                </td>
+                 <td className="px-6 py-4">
+                  <span className="text-gray-500">{user.role}</span>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1 max-w-xs">
+                    {user.accessibleMenus.map(menuId => (
+                      <span key={menuId} className={`px-2 py-1 text-xs font-bold rounded-full ${menuConfig[menuId]?.color || ''}`}>
+                        {menuConfig[menuId]?.label || menuId}
+                      </span>
+                    ))}
+                    {user.accessibleMenus.length === 0 && <span className="text-xs text-gray-400">بدون دسترسی</span>}
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-left">
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => onEdit(user)}
+                      className="p-2 text-yellow-500 hover:text-yellow-600 rounded-full hover:bg-yellow-100 transition-colors"
+                      aria-label={`ویرایش ${user.firstName} ${user.lastName}`}
+                    >
+                      <EditIcon />
+                    </button>
+                    <button
+                      onClick={() => onDelete(user.id)}
+                      className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                      aria-label={`حذف ${user.firstName} ${user.lastName}`}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export default UserTable;

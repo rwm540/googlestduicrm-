@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>داشبورد مدیریت</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jalaali-js for date calculations -->
+    <script src="https://cdn.jsdelivr.net/npm/jalaali-js/dist/jalaali.js"></script>
+    
+    <style>
+      /* A beautiful and modern Persian font */
+      @import url('https://cdn.font-face.ir/css/sahel.css');
+      body {
+        font-family: 'Sahel', sans-serif;
+        background-color: #f8fafc; /* bg-gray-50 */
+      }
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9; /* slate-100 */
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #94a3b8; /* slate-400 */
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #64748b; /* slate-500 */
+      }
+      /* Fix for modal animation */
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.3s ease-out forwards;
+      }
+      @keyframes scale-up {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      .animate-scale-up {
+        animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://aistudiocdn.com/react-dom@18.3.1/",
+        "react/": "https://aistudiocdn.com/react@18.3.1/",
+        "react": "https://aistudiocdn.com/react@18.3.1",
+        "@google/genai": "https://esm.run/@google/genai"
+      }
+    }
+    </script>
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+</body>
+</html>
