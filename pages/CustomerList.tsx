@@ -1,9 +1,11 @@
 
+
 import React, { useState } from 'react';
 import { Customer } from '../types';
 import CustomerTable from '../components/CustomerTable';
 import CustomerFormModal from '../components/CustomerFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
+import Pagination from '../components/Pagination';
 
 interface CustomerListProps {
   customers: Customer[];
@@ -11,10 +13,13 @@ interface CustomerListProps {
   onDelete: (customerId: number) => void;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleOpenModal = (customer: Customer | null = null) => {
     setEditingCustomer(customer);
@@ -31,6 +36,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
     handleCloseModal();
   };
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
   const filteredCustomers = customers.filter(customer => {
     const search = searchTerm.toLowerCase();
     return (
@@ -41,6 +51,12 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
         customer.mobileNumbers.some(m => m.toLowerCase().includes(search))
     )
   });
+
+  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
+  const paginatedCustomers = filteredCustomers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
 
   return (
@@ -68,11 +84,18 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
                     type="text"
                     placeholder="جستجوی مشتری..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchChange}
                     className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                 />
             </div>
-            <CustomerTable customers={filteredCustomers} onEdit={handleOpenModal} onDelete={onDelete} />
+            <CustomerTable customers={paginatedCustomers} onEdit={handleOpenModal} onDelete={onDelete} />
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={ITEMS_PER_PAGE}
+                totalItems={filteredCustomers.length}
+            />
         </div>
 
         {/* Modal */}

@@ -1,31 +1,42 @@
+
 import React, { useState, useMemo } from 'react';
-import { Ticket, Customer, User, Referral } from '../types';
+import { Ticket, Customer, User, Referral, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
 import TicketFormModal from '../components/TicketFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
 import TicketBoard from '../components/TicketBoard';
 import ReferTicketModal from '../components/ReferTicketModal';
-import { parseJalaaliDateTime } from '../utils/dateFormatter';
+import { parseJalaaliDateTime, toPersianDigits } from '../utils/dateFormatter';
+import Pagination from '../components/Pagination';
+import { calculateTicketScore } from '../utils/ticketScoring';
+import { UserCheckIcon } from '../components/icons/UserCheckIcon';
 
 interface TicketsProps {
   tickets: Ticket[];
   referrals: Referral[];
   customers: Customer[];
   users: User[];
+  supportContracts: SupportContract[];
   onSave: (ticket: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => void;
   onReferTicket: (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => void;
   onToggleWork: (ticketId: number, isFromReferral: boolean) => void;
   currentUser: User;
 }
 
-const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser }) => {
+const ITEMS_PER_PAGE = 10;
+
+const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser, supportContracts }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
-  const [referringTicket, setReferringTicket] = useState<Ticket | null>(null);
+  const [referringTickets, setReferringTickets] = useState<Ticket[] | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
   const [showCompleted, setShowCompleted] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  
+  const referredTicketIds = useMemo(() => new Set(referrals.map(r => r.ticket.id)), [referrals]);
 
   const handleOpenModal = (ticket: Ticket | null = null) => {
     setEditingTicket(ticket);
@@ -38,27 +49,45 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   };
   
   const handleOpenReferModal = (ticket: Ticket) => {
-    setReferringTicket(ticket);
+    setReferringTickets([ticket]);
     setIsReferModalOpen(true);
+  };
+  
+  const handleOpenGroupReferModal = () => {
+    const ticketsToRefer = sortedAndFilteredTickets.filter(t => selectedIds.includes(t.id));
+    if (ticketsToRefer.length > 0) {
+        setReferringTickets(ticketsToRefer);
+        setIsReferModalOpen(true);
+    }
   };
 
   const handleCloseReferModal = () => {
     setIsReferModalOpen(false);
-    setTimeout(() => setReferringTicket(null), 300);
+    setTimeout(() => setReferringTickets(null), 300);
   };
 
   const handleSaveTicket = (ticketData: Ticket | Omit<Ticket, 'id'>) => {
-    onSave(ticketData, false);
+    const isFromReferral = 'id' in ticketData ? referredTicketIds.has(ticketData.id) : false;
+    onSave(ticketData, isFromReferral);
     handleCloseModal();
   };
 
   const handleReferTicketSubmit = (newAssigneeUsername: string) => {
-    if (!referringTicket) return;
-    onReferTicket(referringTicket.id, false, currentUser, newAssigneeUsername);
+    if (!referringTickets) return;
+    referringTickets.forEach(ticket => {
+        const isFromReferral = referredTicketIds.has(ticket.id);
+        onReferTicket(ticket.id, isFromReferral, currentUser, newAssigneeUsername);
+    });
     handleCloseReferModal();
+    setSelectedIds([]);
   };
 
-  const filteredTickets = useMemo(() => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const sortedAndFilteredTickets = useMemo(() => {
     let sourceTickets: Ticket[] = [];
 
     if (showCompleted) {
@@ -73,11 +102,12 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
             sourceTickets = allCompletedTickets.filter(t => t.assignedTo === currentUser.username);
         }
     } else {
-        // Active tickets only come from the main `tickets` array. Referrals are handled on their own page.
         sourceTickets = tickets.filter(ticket => ticket.status !== 'ارجاع شده' && ticket.status !== 'اتمام یافته');
     }
+    
+    const uniqueTickets = Array.from(new Map(sourceTickets.map(ticket => [ticket.id, ticket])).values());
 
-    return sourceTickets
+    const scoredAndFilteredTickets = uniqueTickets
         .filter(ticket => {
             const search = searchTerm.toLowerCase();
             if (!search) return true;
@@ -89,12 +119,42 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
                 (customer && customer.companyName.toLowerCase().includes(search))
             );
         })
-        .sort((a, b) => {
-            const dateA = parseJalaaliDateTime(a.creationDateTime)?.getTime() || 0;
-            const dateB = parseJalaaliDateTime(b.creationDateTime)?.getTime() || 0;
-            return dateB - dateA;
-        });
-  }, [tickets, referrals, searchTerm, customers, showCompleted, currentUser]);
+        .map(ticket => ({
+            ...ticket,
+            score: calculateTicketScore(ticket, customers, supportContracts),
+        }));
+
+    scoredAndFilteredTickets.sort((a, b) => {
+        if (a.score !== b.score) {
+            return a.score - b.score;
+        }
+        const dateA = parseJalaaliDateTime(a.creationDateTime)?.getTime() || 0;
+        const dateB = parseJalaaliDateTime(b.creationDateTime)?.getTime() || 0;
+        return dateB - dateA;
+    });
+
+    return scoredAndFilteredTickets;
+  }, [tickets, referrals, searchTerm, customers, showCompleted, currentUser, supportContracts]);
+
+  const totalPages = Math.ceil(sortedAndFilteredTickets.length / ITEMS_PER_PAGE);
+  const paginatedTickets = sortedAndFilteredTickets.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds(prev => 
+        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedIds.length === paginatedTickets.length) {
+        setSelectedIds([]);
+    } else {
+        setSelectedIds(paginatedTickets.map(t => t.id));
+    }
+  };
 
 
   return (
@@ -114,7 +174,10 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
-              onClick={() => setShowCompleted(!showCompleted)}
+              onClick={() => {
+                setShowCompleted(!showCompleted);
+                setCurrentPage(1);
+              }}
               className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 bg-white text-cyan-600 border border-cyan-600 font-semibold rounded-lg hover:bg-cyan-50 transition-colors"
             >
               {showCompleted ? 'نمایش تیکت‌های جاری' : 'نمایش تیکت‌های اتمام یافته'}
@@ -130,28 +193,49 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
         </div>
 
         <div className="mt-8">
-          <div className="mb-4">
+          <div className="flex items-center gap-4 mb-4">
             <input
               type="text"
               placeholder="جستجوی تیکت (شماره، عنوان، مشتری)..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
               className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
             />
+             {selectedIds.length > 0 && (
+                 <button 
+                    onClick={handleOpenGroupReferModal}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    <UserCheckIcon className="h-5 w-5" />
+                    <span>ارجاع ({toPersianDigits(selectedIds.length)}) مورد</span>
+                 </button>
+            )}
           </div>
           {viewMode === 'list' ? (
-            <TicketTable
-              tickets={filteredTickets}
-              customers={customers}
-              users={users}
-              onEdit={handleOpenModal}
-              onRefer={handleOpenReferModal}
-              onToggleWork={(ticketId) => onToggleWork(ticketId, false)}
-              isReferralTable={false}
-              emptyMessage={showCompleted ? 'هیچ تیکت اتمام یافته‌ای برای نمایش وجود ندارد.' : 'هیچ تیکت فعالی یافت نشد. برای شروع یک تیکت جدید ایجاد کنید.'}
-            />
+            <>
+              <TicketTable
+                tickets={paginatedTickets}
+                customers={customers}
+                users={users}
+                onEdit={handleOpenModal}
+                onRefer={handleOpenReferModal}
+                onToggleWork={(ticketId) => onToggleWork(ticketId, referredTicketIds.has(ticketId))}
+                isReferralTable={false}
+                emptyMessage={showCompleted ? 'هیچ تیکت اتمام یافته‌ای برای نمایش وجود ندارد.' : 'هیچ تیکت فعالی یافت نشد. برای شروع یک تیکت جدید ایجاد کنید.'}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+              />
+              <Pagination 
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  totalItems={sortedAndFilteredTickets.length}
+              />
+            </>
           ) : (
-            <TicketBoard tickets={filteredTickets} />
+            <TicketBoard tickets={sortedAndFilteredTickets} />
           )}
         </div>
 
@@ -168,7 +252,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           isOpen={isReferModalOpen}
           onClose={handleCloseReferModal}
           onRefer={handleReferTicketSubmit}
-          ticket={referringTicket}
+          tickets={referringTickets}
           users={users}
           currentUser={currentUser}
         />

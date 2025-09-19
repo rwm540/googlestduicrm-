@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
@@ -64,8 +65,11 @@ function App() {
   const handleSaveTicket = (ticketData: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => {
       const now = new Date();
       if ('id' in ticketData) {
-          // Editing existing ticket - Do NOT update editableUntil
-          const updatedTicket = { ...ticketData } as Ticket;
+          // Editing existing ticket - UPDATE editableUntil on every save
+          const updatedTicket = { 
+              ...ticketData,
+              editableUntil: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+          } as Ticket;
           if (isFromReferral) {
               setReferrals(prev => prev.map(r => r.ticket.id === updatedTicket.id ? { ...r, ticket: updatedTicket } : r));
           } else {
@@ -143,10 +147,18 @@ function App() {
           id: Date.now(),
           assignedTo: referredToUsername,
           lastUpdateDate: formatJalaaliDateTime(now),
-          status: 'انجام نشده',
-          editableUntil: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
-          totalWorkDuration: 0,
-          updates: [],
+          // status, workSessionStartedAt, and totalWorkDuration are preserved from ticketToRefer
+          editableUntil: ticketToRefer.editableUntil,
+          updates: [
+            ...ticketToRefer.updates,
+            {
+              id: Date.now() + 1, // Ensure unique ID
+              author: referredBy.username,
+              date: formatJalaaliDateTime(now),
+              description: `ارجاع از ${referredBy.username} به ${referredToUsername}`,
+              timeSpent: 0
+            }
+          ],
       };
       
       const newReferral: Referral = {
@@ -186,9 +198,9 @@ function App() {
           </main>
         </div>
       );
-      case 'tickets': return <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} onSave={handleSaveTicket} onReferTicket={handleReferTicket} currentUser={currentUser} onToggleWork={handleToggleWork} />;
+      case 'tickets': return <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} onSave={handleSaveTicket} onReferTicket={handleReferTicket} currentUser={currentUser} onToggleWork={handleToggleWork} supportContracts={supportContracts} />;
       case 'reports': return <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} />;
-      case 'referrals': return <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} />;
+      case 'referrals': return <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} supportContracts={supportContracts} />;
       case 'no_access': return <PlaceholderPage title="شما به هیچ صفحه‌ای دسترسی ندارید." />;
       default: return <PlaceholderPage title="صفحه مورد نظر یافت نشد" />;
     }

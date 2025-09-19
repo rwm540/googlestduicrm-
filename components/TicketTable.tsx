@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Ticket, TicketStatus, TicketPriority, Customer, User } from '../types';
 import { ClockIcon } from './icons/ClockIcon';
@@ -7,7 +8,7 @@ import TicketActions from './TicketActions';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 
 interface TicketTableProps {
-  tickets: Ticket[];
+  tickets: (Ticket & { score?: number })[];
   customers: Customer[];
   users: User[];
   onEdit: (ticket: Ticket) => void;
@@ -15,6 +16,9 @@ interface TicketTableProps {
   onToggleWork: (ticketId: number) => void;
   isReferralTable: boolean;
   emptyMessage?: string;
+  selectedIds: number[];
+  onToggleSelect: (id: number) => void;
+  onToggleSelectAll: () => void;
 }
 
 const statusStyles: { [key in TicketStatus]: { icon: React.ReactNode, text: string, color: string } } = {
@@ -36,7 +40,7 @@ const toPersianDigits = (n: string | number): string => {
   return String(n).replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
 };
 
-const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, isReferralTable, emptyMessage }) => {
+const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll }) => {
   
   const getCustomerName = (customerId: number) => customers.find(c => c.id === customerId)?.companyName || 'N/A';
   const getAssigneeName = (username: string) => {
@@ -56,18 +60,23 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
     );
   }
 
-  const handleRowClick = (ticket: Ticket) => {
-    // Only open if editable, otherwise it's view-only
-    onEdit(ticket);
-  };
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-sm text-right text-gray-600">
           <thead className="text-xs text-cyan-700 font-semibold uppercase bg-slate-50 tracking-wider">
             <tr>
+              <th scope="col" className="p-4">
+                <div className="flex items-center">
+                    <input id="checkbox-all" type="checkbox" 
+                        onChange={onToggleSelectAll} 
+                        checked={tickets.length > 0 && selectedIds.length === tickets.length}
+                        className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"/>
+                    <label htmlFor="checkbox-all" className="sr-only">checkbox</label>
+                </div>
+              </th>
               <th scope="col" className="px-6 py-4">شناسه</th>
+              <th scope="col" className="px-6 py-4">امتیاز</th>
               <th scope="col" className="px-6 py-4">عنوان</th>
               <th scope="col" className="px-6 py-4">مشتری</th>
               <th scope="col" className="px-6 py-4">وضعیت</th>
@@ -81,20 +90,37 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                 key={ticket.id} 
                 className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200"
               >
-                <td className="px-6 py-4" onClick={() => handleRowClick(ticket)}>
+                <td className="p-4 w-4">
+                  <div className="flex items-center">
+                      <input id={`checkbox-${ticket.id}`} type="checkbox" 
+                          checked={selectedIds.includes(ticket.id)} 
+                          onChange={() => onToggleSelect(ticket.id)} 
+                          onClick={e => e.stopPropagation()}
+                          className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"/>
+                      <label htmlFor={`checkbox-${ticket.id}`} className="sr-only">checkbox</label>
+                  </div>
+                </td>
+                <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>
                     <span className={`font-mono text-xs border-r-2 pr-2 ${priorityStyles[ticket.priority]}`}>
                         {toPersianDigits(ticket.ticketNumber)}
                     </span>
                 </td>
-                <td className="px-6 py-4 font-medium text-slate-800" onClick={() => handleRowClick(ticket)}>{ticket.title}</td>
-                <td className="px-6 py-4" onClick={() => handleRowClick(ticket)}>{getCustomerName(ticket.customerId)}</td>
-                <td className="px-6 py-4" onClick={() => handleRowClick(ticket)}>
+                <td className="px-6 py-4 text-center cursor-pointer" onClick={() => onEdit(ticket)}>
+                  {ticket.score !== undefined && (
+                    <span className="font-mono font-bold text-slate-700 bg-slate-200 rounded-full px-2 py-1 text-xs" title="امتیاز اولویت (کمتر = مهم‌تر)">
+                      {toPersianDigits(ticket.score)}
+                    </span>
+                  )}
+                </td>
+                <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => onEdit(ticket)}>{ticket.title}</td>
+                <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>{getCustomerName(ticket.customerId)}</td>
+                <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>
                     <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-bold rounded-full ${statusStyles[ticket.status]?.color || ''}`}>
                         {statusStyles[ticket.status]?.icon}
                         {statusStyles[ticket.status]?.text}
                     </span>
                 </td>
-                <td className="px-6 py-4" onClick={() => handleRowClick(ticket)}>{getAssigneeName(ticket.assignedTo)}</td>
+                <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>{getAssigneeName(ticket.assignedTo)}</td>
                 <td className="px-6 py-4 text-left">
                   <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} />
                 </td>
@@ -106,18 +132,32 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
        {/* Mobile & Tablet Card View */}
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {tickets.map(ticket => (
-          <div key={ticket.id} className="bg-white p-4 space-y-3">
-            <div onClick={() => handleRowClick(ticket)}>
+          <div key={ticket.id} className="bg-white p-4 space-y-3 relative">
+             <div className="absolute top-2 left-2">
+                <input id={`checkbox-mobile-${ticket.id}`} type="checkbox" 
+                    checked={selectedIds.includes(ticket.id)} 
+                    onChange={() => onToggleSelect(ticket.id)} 
+                    className="w-5 h-5 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"/>
+                <label htmlFor={`checkbox-mobile-${ticket.id}`} className="sr-only">checkbox</label>
+             </div>
+            <div onClick={() => onEdit(ticket)}>
                 <div className="flex items-start justify-between">
                     <div>
                         <p className="font-bold text-slate-800">{ticket.title}</p>
                         <p className="text-sm text-gray-500">{getCustomerName(ticket.customerId)}</p>
                         <p className={`font-mono text-xs pt-1 border-r-2 pr-2 mt-1 ${priorityStyles[ticket.priority]}`}>{toPersianDigits(ticket.ticketNumber)}</p>
                     </div>
-                    <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-bold rounded-full ${statusStyles[ticket.status]?.color || ''}`}>
-                        {statusStyles[ticket.status]?.icon}
-                        {statusStyles[ticket.status]?.text}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-bold rounded-full ${statusStyles[ticket.status]?.color || ''}`}>
+                          {statusStyles[ticket.status]?.icon}
+                          {statusStyles[ticket.status]?.text}
+                      </span>
+                       {ticket.score !== undefined && (
+                        <span className="font-mono font-bold text-slate-700 bg-slate-200 rounded-full px-2 py-1 text-xs" title="امتیاز اولویت (کمتر = مهم‌تر)">
+                          {toPersianDigits(ticket.score)}
+                        </span>
+                      )}
+                    </div>
                 </div>
                 <div className="text-sm text-gray-600 pt-2 border-t border-gray-100 mt-2">
                     <p>کاربر: {getAssigneeName(ticket.assignedTo)}</p>

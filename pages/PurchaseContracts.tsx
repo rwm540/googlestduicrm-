@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { PurchaseContract, User, Customer } from '../types';
 import PurchaseContractTable from '../components/PurchaseContractTable';
 import PurchaseContractFormModal from '../components/PurchaseContractFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
+import Pagination from '../components/Pagination';
 
 interface PurchaseContractsProps {
   contracts: PurchaseContract[];
@@ -12,10 +14,13 @@ interface PurchaseContractsProps {
   onDelete: (contractId: number) => void;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const PurchaseContracts: React.FC<PurchaseContractsProps> = ({ contracts, users, customers, onSave, onDelete }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<PurchaseContract | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleOpenModal = (contract: PurchaseContract | null = null) => {
     setEditingContract(contract);
@@ -32,9 +37,20 @@ const PurchaseContracts: React.FC<PurchaseContractsProps> = ({ contracts, users,
     handleCloseModal();
   };
   
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
   const filteredContracts = contracts.filter(contract =>
     contract.contractId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     contract.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredContracts.length / ITEMS_PER_PAGE);
+  const paginatedContracts = filteredContracts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
   return (
@@ -60,11 +76,18 @@ const PurchaseContracts: React.FC<PurchaseContractsProps> = ({ contracts, users,
                     type="text"
                     placeholder="جستجوی قرارداد..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchChange}
                     className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                 />
             </div>
-            <PurchaseContractTable contracts={filteredContracts} onEdit={handleOpenModal} onDelete={onDelete} />
+            <PurchaseContractTable contracts={paginatedContracts} onEdit={handleOpenModal} onDelete={onDelete} />
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={ITEMS_PER_PAGE}
+                totalItems={filteredContracts.length}
+            />
         </div>
 
         <PurchaseContractFormModal

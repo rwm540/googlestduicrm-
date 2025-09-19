@@ -1,9 +1,11 @@
 
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import UserTable from '../components/UserTable';
 import UserFormModal from '../components/UserFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
+import Pagination from '../components/Pagination';
 
 interface UserManagementProps {
   users: User[];
@@ -11,10 +13,13 @@ interface UserManagementProps {
   onDelete: (userId: number) => void;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleOpenModal = (user: User | null = null) => {
     setEditingUser(user);
@@ -34,6 +39,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
   const filteredUsers = users.filter(user => 
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
   return (
@@ -61,11 +77,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
                     type="text"
                     placeholder="جستجوی کاربر..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchChange}
                     className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                 />
             </div>
-            <UserTable users={filteredUsers} onEdit={handleOpenModal} onDelete={onDelete} />
+            <UserTable users={paginatedUsers} onEdit={handleOpenModal} onDelete={onDelete} />
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={ITEMS_PER_PAGE}
+                totalItems={filteredUsers.length}
+            />
         </div>
 
         {/* Modal */}

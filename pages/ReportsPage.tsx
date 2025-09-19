@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Customer, PurchaseContract, SupportContract, Ticket, User, TicketStatus, TicketPriority, ContractStatus, CustomerStatus } from '../types';
 import DatePicker from '../components/DatePicker';
+import Pagination from '../components/Pagination';
 
 type ReportType = 'customers' | 'contracts' | 'tickets';
 
@@ -11,6 +13,8 @@ interface ReportsPageProps {
   supportContracts: SupportContract[];
   tickets: Ticket[];
 }
+
+const ITEMS_PER_PAGE = 10;
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseContracts, supportContracts, tickets }) => {
     const [reportType, setReportType] = useState<ReportType>('customers');
@@ -24,6 +28,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
     const [reportData, setReportData] = useState<any[]>([]);
     const [reportColumns, setReportColumns] = useState<string[]>([]);
     const [showResults, setShowResults] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const toPersianDigits = (n: string | number): string => {
         if (n === undefined || n === null) return '';
@@ -32,6 +37,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
     };
     
     const handleGenerateReport = useCallback(() => {
+        setCurrentPage(1); // Reset page on new report generation
         let data: any[] = [];
         let columns: string[] = [];
 
@@ -42,8 +48,9 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
 
         const checkDateRange = (dateStr: string) => {
             if (!dateStr) return false;
-            if (filters.startDate && dateStr < filters.startDate) return false;
-            if (filters.endDate && dateStr > filters.endDate) return false;
+            const dateOnly = dateStr.split(' ')[0];
+            if (filters.startDate && dateOnly < filters.startDate) return false;
+            if (filters.endDate && dateOnly > filters.endDate) return false;
             return true;
         };
 
@@ -82,7 +89,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
             case 'tickets':
                 columns = ['شماره تیکت', 'عنوان', 'مشتری', 'وضعیت', 'اولویت', 'مسئول'];
                 data = tickets.filter(t => {
-                    if (!checkDateRange(t.creationDateTime.split(' ')[0])) return false;
+                    if (!checkDateRange(t.creationDateTime)) return false;
                     if (filters.status !== 'all' && t.status !== filters.status) return false;
                     if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
                     if (filters.assignedTo !== 'all' && t.assignedTo !== filters.assignedTo) return false;
@@ -106,6 +113,12 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
     useEffect(() => {
         handleGenerateReport();
     }, [handleGenerateReport]);
+
+    const totalPages = Math.ceil(reportData.length / ITEMS_PER_PAGE);
+    const paginatedData = reportData.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
 
     const renderFilters = () => {
         const ticketStatuses: TicketStatus[] = ['در حال پیگیری', 'انجام نشده', 'اتمام یافته'];
@@ -193,20 +206,29 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
                     <h3 className="text-lg font-semibold text-slate-800">نتایج گزارش</h3>
                 </div>
                 {reportData.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-right text-gray-600">
-                             <thead className="text-xs text-cyan-700 font-semibold uppercase bg-slate-50">
-                                <tr>{reportColumns.map(col => <th key={col} className="px-6 py-4">{col}</th>)}</tr>
-                             </thead>
-                             <tbody>
-                                {reportData.map((row, index) => (
-                                    <tr key={index} className="border-b hover:bg-slate-50/50">
-                                        {Object.values(row).map((val: any, i) => <td key={i} className="px-6 py-4">{toPersianDigits(val)}</td>)}
-                                    </tr>
-                                ))}
-                             </tbody>
-                        </table>
-                    </div>
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-right text-gray-600">
+                                <thead className="text-xs text-cyan-700 font-semibold uppercase bg-slate-50">
+                                    <tr>{reportColumns.map(col => <th key={col} className="px-6 py-4">{col}</th>)}</tr>
+                                </thead>
+                                <tbody>
+                                    {paginatedData.map((row, index) => (
+                                        <tr key={index} className="border-b hover:bg-slate-50/50">
+                                            {Object.values(row).map((val: any, i) => <td key={i} className="px-6 py-4">{toPersianDigits(val)}</td>)}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <Pagination 
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setCurrentPage}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            totalItems={reportData.length}
+                        />
+                    </>
                 ) : (
                     <div className="p-16 text-center text-gray-500">
                         <p>هیچ نتیجه‌ای برای فیلترهای انتخابی یافت نشد.</p>

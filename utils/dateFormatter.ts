@@ -7,6 +7,18 @@ export const toPersianDigits = (n: string | number): string => {
   return String(n).replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
 };
 
+export const convertPersianToEnglish = (s: string): string => {
+  if (!s) return '';
+  const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  const englishDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  let result = s;
+  for (let i = 0; i < 10; i++) {
+    result = result.replace(new RegExp(persianDigits[i], "g"), englishDigits[i]);
+  }
+  return result;
+};
+
+
 export const formatSecondsToTime = (totalSeconds: number): string => {
     if (isNaN(totalSeconds) || totalSeconds < 0) {
         return "۰۰:۰۰:۰۰";
@@ -36,8 +48,8 @@ export const formatJalaaliDateTime = (date: Date): string => {
 };
 
 export const formatCurrency = (n: number): string => {
-    if (n === undefined || n === null) return '';
-    return toPersianDigits(n.toLocaleString('fa-IR'));
+    if (n === undefined || n === null || isNaN(n)) return '';
+    return toPersianDigits(n.toLocaleString('en-US'));
 };
 
 export const parseJalaali = (dateStr: string): Date | null => {
@@ -96,6 +108,29 @@ export const getCalculatedStatus = (endDateStr: string, currentStatus: ContractS
     
     return 'فعال';
 };
+
+export const getPurchaseContractStatusByDate = (startDateStr: string, endDateStr: string): 'فعال' | 'منقضی شده' => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = parseJalaali(startDateStr);
+    const endDate = parseJalaali(endDateStr);
+
+    if (!startDate || !endDate) {
+        return 'فعال'; // Default if dates are invalid
+    }
+    
+    // Set times for accurate comparison
+    startDate.setHours(0,0,0,0);
+    endDate.setHours(23,59,59,999);
+
+    if (today >= startDate && today <= endDate) {
+        return 'فعال';
+    }
+
+    return 'منقضی شده';
+};
+
 
 export const isToday = (someDate: Date): boolean => {
     const today = new Date();

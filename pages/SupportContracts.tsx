@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { SupportContract, Customer } from '../types';
 import SupportContractTable from '../components/SupportContractTable';
 import SupportContractFormModal from '../components/SupportContractFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
+import Pagination from '../components/Pagination';
 
 interface SupportContractsProps {
   contracts: SupportContract[];
@@ -11,10 +13,13 @@ interface SupportContractsProps {
   onDelete: (contractId: number) => void;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customers, onSave, onDelete }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<SupportContract | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleOpenModal = (contract: SupportContract | null = null) => {
     setEditingContract(contract);
@@ -31,6 +36,11 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
     handleCloseModal();
   };
   
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
   const getCustomerName = (customerId: number | null) => {
     if (!customerId) return 'نامشخص';
     return customers.find(c => c.id === customerId)?.companyName || 'یافت نشد';
@@ -39,6 +49,12 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
   const filteredContracts = contracts.filter(contract =>
     getCustomerName(contract.customerId).toLowerCase().includes(searchTerm.toLowerCase()) ||
     contract.organizationName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredContracts.length / ITEMS_PER_PAGE);
+  const paginatedContracts = filteredContracts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
   return (
@@ -64,15 +80,22 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
                     type="text"
                     placeholder="جستجوی قرارداد..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={handleSearchChange}
                     className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                 />
             </div>
             <SupportContractTable 
-                contracts={filteredContracts} 
+                contracts={paginatedContracts} 
                 customers={customers}
                 onEdit={handleOpenModal} 
                 onDelete={onDelete} 
+            />
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={ITEMS_PER_PAGE}
+                totalItems={filteredContracts.length}
             />
         </div>
 

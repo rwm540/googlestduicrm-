@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SupportContract, Customer, SupportContractDuration, SupportContractType, SupportContractLevel, SupportContractStatus, SoftwareType } from '../types';
 import Modal from './Modal';
 import DatePicker from './DatePicker';
-import { getCalculatedStatus } from '../utils/dateFormatter';
+import { getPurchaseContractStatusByDate } from '../utils/dateFormatter';
 
 declare const jalaali: any;
 
@@ -31,7 +31,7 @@ const getInitialState = (): Omit<SupportContract, 'id'> => {
     duration: 'یکساله',
     supportType: [],
     level: 'برنزه',
-    status: 'در انتظار تایید',
+    status: 'فعال', // Status will be derived from dates on save
     organizationName: '',
     contactPerson: '',
     contactNumber: '',
@@ -137,7 +137,8 @@ const SupportContractFormModal: React.FC<SupportContractFormModalProps> = ({ isO
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ ...formData, ...(contract && { id: contract.id }) });
+    const finalStatus = getPurchaseContractStatusByDate(formData.startDate, formData.endDate);
+    onSave({ ...formData, status: finalStatus, ...(contract && { id: contract.id }) });
     onClose();
   };
   
@@ -145,9 +146,7 @@ const SupportContractFormModal: React.FC<SupportContractFormModalProps> = ({ isO
   const typeOptions: SupportContractType[] = ['تلفنی', 'ریموت', 'حضوری'];
   const levelOptions: SupportContractLevel[] = ['طلایی', 'نقره ای', 'برنزه'];
   
-  const calculatedStatusBasedOnDate = getCalculatedStatus(formData.endDate, 'فعال');
-  const isManualStatus = formData.status === 'لغو شده' || formData.status === 'در انتظار تایید';
-  const displayStatus = isManualStatus ? formData.status : calculatedStatusBasedOnDate;
+  const displayStatus = getPurchaseContractStatusByDate(formData.startDate, formData.endDate);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl">
@@ -189,25 +188,11 @@ const SupportContractFormModal: React.FC<SupportContractFormModalProps> = ({ isO
                     </select>
                 </FormField>
                 <FormField label="وضعیت قرارداد">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 mt-1">
                         <span className={`px-3 py-2 text-sm font-bold rounded-full ${statusStyles[displayStatus]}`}>
                             {displayStatus}
                         </span>
-                        <select 
-                            value={isManualStatus ? formData.status : "auto"}
-                            onChange={(e) => {
-                                const newStatus = e.target.value;
-                                setFormData(prev => ({ 
-                                    ...prev, 
-                                    status: newStatus === 'auto' ? calculatedStatusBasedOnDate : newStatus as SupportContractStatus 
-                                }))
-                            }}
-                            className={`${inputClass} max-w-xs`}
-                        >
-                            <option value="auto">وضعیت خودکار (بر اساس تاریخ)</option>
-                            <option value="در انتظار تایید">در انتظار تایید</option>
-                            <option value="لغو شده">لغو شده</option>
-                        </select>
+                        <p className="text-sm text-gray-500">(محاسبه خودکار بر اساس تاریخ)</p>
                     </div>
                 </FormField>
                 <FormField label="نوع پشتیبانی">

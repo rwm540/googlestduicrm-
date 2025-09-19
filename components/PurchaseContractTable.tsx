@@ -2,7 +2,7 @@ import React from 'react';
 import { PurchaseContract, ContractStatus } from '../types';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
-import { getCalculatedStatus, toPersianDigits, formatCurrency } from '../utils/dateFormatter';
+import { getPurchaseContractStatusByDate, toPersianDigits, formatCurrency } from '../utils/dateFormatter';
 
 interface PurchaseContractTableProps {
   contracts: PurchaseContract[];
@@ -32,7 +32,7 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
         {/* Mobile & Tablet Card View (for screens smaller than lg) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {contracts.map(contract => {
-            const displayStatus = getCalculatedStatus(contract.contractEndDate, contract.contractStatus);
+            const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
             return (
               <div key={contract.id} className="bg-white p-4 space-y-3">
                   <div className="flex items-start justify-between">
@@ -85,7 +85,7 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
           </thead>
           <tbody>
             {contracts.map(contract => {
-              const displayStatus = getCalculatedStatus(contract.contractEndDate, contract.contractStatus);
+              const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
               return (
               <tr key={contract.id} className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200">
                 <td className="px-6 py-4 font-mono font-medium text-slate-800">{toPersianDigits(contract.contractId)}</td>

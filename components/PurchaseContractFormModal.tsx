@@ -4,7 +4,7 @@ import Modal from './Modal';
 import DatePicker from './DatePicker';
 import { FileUploadIcon } from './icons/FileUploadIcon';
 import Alert from './Alert';
-import { getCalculatedStatus } from '../utils/dateFormatter';
+import { getPurchaseContractStatusByDate, formatCurrency, convertPersianToEnglish } from '../utils/dateFormatter';
 
 declare const jalaali: any;
 
@@ -123,17 +123,22 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
   const [activeTab, setActiveTab] = useState(0);
   const [formData, setFormData] = useState<Omit<PurchaseContract, 'id'>>(getInitialState());
   const [errors, setErrors] = useState<string[]>([]);
+  const [formattedTotalAmount, setFormattedTotalAmount] = useState('');
+  const [formattedPrepayment, setFormattedPrepayment] = useState('');
+  const salesUsers = users.filter(user => user.role === 'فروش');
 
   useEffect(() => {
     if (isOpen) {
-        if (contract) {
-            setFormData(contract);
-        } else {
-            setFormData(getInitialState());
-        }
+        const initialState = contract ? contract : getInitialState();
+        setFormData(initialState);
+        setFormattedTotalAmount(formatCurrency(initialState.totalAmount));
+        setFormattedPrepayment(formatCurrency(initialState.prepayment));
     } else {
         setTimeout(() => {
-            setFormData(getInitialState());
+            const initial = getInitialState();
+            setFormData(initial);
+            setFormattedTotalAmount(formatCurrency(initial.totalAmount));
+            setFormattedPrepayment(formatCurrency(initial.prepayment));
             setActiveTab(0);
             setErrors([]);
         }, 300);
@@ -151,6 +156,22 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
             customerContact: customer.mobileNumbers[0] || customer.phone[0] || '',
             customerRepresentative: `${customer.firstName} ${customer.lastName}`
         }));
+    }
+  };
+  
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'totalAmount' | 'prepayment') => {
+    const rawValue = e.target.value;
+    const englishValue = convertPersianToEnglish(rawValue);
+    const numericString = englishValue.replace(/[^0-9]/g, '');
+    const numericValue = numericString ? parseInt(numericString, 10) : 0;
+    
+    setFormData(prev => ({ ...prev, [field]: numericValue }));
+    
+    const formatted = numericString ? formatCurrency(numericValue) : '';
+    if (field === 'totalAmount') {
+        setFormattedTotalAmount(formatted);
+    } else {
+        setFormattedPrepayment(formatted);
     }
   };
 
@@ -201,16 +222,14 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
         setActiveTab(0); // Go to the tab with the error
         return;
     }
-
-    onSave({ ...formData, ...(contract && { id: contract.id }) });
+    const finalStatus = getPurchaseContractStatusByDate(formData.contractStartDate, formData.contractEndDate);
+    onSave({ ...formData, contractStatus: finalStatus, ...(contract && { id: contract.id }) });
     onClose();
   };
   
   const tabs = ["مشخصات", "طرفین", "فنی", "خدمات", "مالی", "پیوست", "حقوقی", "CRM"];
   
-  const calculatedStatusBasedOnDate = getCalculatedStatus(formData.contractEndDate, 'فعال');
-  const isManualStatus = formData.contractStatus === 'لغو شده' || formData.contractStatus === 'در انتظار تایید';
-  const displayStatus = isManualStatus ? formData.contractStatus : calculatedStatusBasedOnDate;
+  const displayStatus = getPurchaseContractStatusByDate(formData.contractStartDate, formData.contractEndDate);
 
   const renderTabContent = () => {
     switch(activeTab) {
@@ -223,25 +242,11 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
                     </select>
                 </FormField>
                 <FormField label="وضعیت قرارداد">
-                    <div className="flex items-center gap-4">
-                        <span className={`px-3 py-2 text-sm font-bold rounded-full ${statusStyles[displayStatus]}`}>
+                    <div className="flex items-center gap-4 mt-1">
+                        <span className={`px-3 py-1 text-sm font-bold rounded-full ${statusStyles[displayStatus]}`}>
                             {displayStatus}
                         </span>
-                        <select 
-                            value={isManualStatus ? formData.contractStatus : "auto"}
-                            onChange={(e) => {
-                                const newStatus = e.target.value;
-                                setFormData(prev => ({ 
-                                    ...prev, 
-                                    contractStatus: newStatus === 'auto' ? calculatedStatusBasedOnDate : newStatus as ContractStatus 
-                                }))
-                            }}
-                            className={`${inputClass} max-w-xs`}
-                        >
-                            <option value="auto">وضعیت خودکار (بر اساس تاریخ)</option>
-                            <option value="در انتظار تایید">در انتظار تایید</option>
-                            <option value="لغو شده">لغو شده</option>
-                        </select>
+                         <p className="text-sm text-gray-500">(محاسبه خودکار بر اساس تاریخ)</p>
                     </div>
                 </FormField>
                 <FormField label="تاریخ انعقاد"><DatePicker value={formData.contractDate} onChange={d => handleDateChange('contractDate', d)} /></FormField>
@@ -284,7 +289,7 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
                 <FormField label="مسئول فروش">
                      <select name="salesperson" value={formData.salesperson} onChange={handleChange} className={inputClass}>
                         <option value="">انتخاب کنید...</option>
-                        {users.map(user => <option key={user.id} value={user.username}>{user.firstName} {user.lastName}</option>)}
+                        {salesUsers.map(user => <option key={user.id} value={user.username}>{user.firstName} {user.lastName}</option>)}
                      </select>
                 </FormField>
              </div>
@@ -314,8 +319,28 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
         );
         case 4: return ( // مالی
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <FormField label="مبلغ کل قرارداد (ریال)"><input type="number" name="totalAmount" value={formData.totalAmount} onChange={handleChange} className={inputClass} /></FormField>
-                <FormField label="پیش پرداخت (ریال)"><input type="number" name="prepayment" value={formData.prepayment} onChange={handleChange} className={inputClass} /></FormField>
+                <FormField label="مبلغ کل قرارداد (ریال)">
+                  <input 
+                      type="text" 
+                      name="totalAmount" 
+                      value={formattedTotalAmount} 
+                      onChange={e => handleAmountChange(e, 'totalAmount')} 
+                      className={`${inputClass} font-mono`}
+                      inputMode="numeric"
+                      dir="ltr"
+                  />
+                </FormField>
+                <FormField label="پیش پرداخت (ریال)">
+                  <input 
+                      type="text" 
+                      name="prepayment" 
+                      value={formattedPrepayment} 
+                      onChange={e => handleAmountChange(e, 'prepayment')} 
+                      className={`${inputClass} font-mono`}
+                      inputMode="numeric"
+                      dir="ltr"
+                  />
+                </FormField>
                 <FormField label="شماره فاکتور"><input type="text" name="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} className={inputClass} /></FormField>
                 <div className="lg:col-span-3"><FormField label="مراحل پرداخت"><textarea name="paymentStages" value={formData.paymentStages} onChange={handleChange} className={textareaClass}></textarea></FormField></div>
                 <FormField label="روش پرداخت">

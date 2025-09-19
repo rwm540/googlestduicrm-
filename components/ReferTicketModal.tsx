@@ -1,27 +1,30 @@
+
 import React, { useState, useEffect } from 'react';
 import { Ticket, User } from '../types';
 import Modal from './Modal';
+import { toPersianDigits } from '../utils/dateFormatter';
 
 interface ReferTicketModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefer: (newAssigneeUsername: string) => void;
-  ticket: Ticket | null;
+  tickets: Ticket[] | null;
   users: User[];
   currentUser: User;
 }
 
-const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, onRefer, ticket, users, currentUser }) => {
+const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, onRefer, tickets, users, currentUser }) => {
   const [newAssignee, setNewAssignee] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && tickets && tickets.length > 0) {
       const isCurrentUserSuperAdmin = currentUser.role === 'مدیر' && currentUser.accessibleMenus.includes('users');
+      const currentAssignees = new Set(tickets.map(t => t.assignedTo));
       
       const availableUsers = users.filter(user => {
-        if (user.username === ticket?.assignedTo) return false;
+        if (currentAssignees.has(user.username)) return false; // Exclude current assignees
         if (isCurrentUserSuperAdmin) return true;
-        return user.role !== 'مدیر';
+        return user.role !== 'مدیر'; // Non-admins can't assign to admins
       });
 
       if (availableUsers.length > 0) {
@@ -32,13 +35,18 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
     } else {
       setNewAssignee(''); // Reset on close
     }
-  }, [isOpen, ticket, users, currentUser]);
+  }, [isOpen, tickets, users, currentUser]);
 
-  if (!ticket) return null;
+  if (!tickets || tickets.length === 0) return null;
+
+  const isGroupRefer = tickets.length > 1;
+  const firstTicket = tickets[0];
   
   const isCurrentUserSuperAdmin = currentUser.role === 'مدیر' && currentUser.accessibleMenus.includes('users');
+  const currentAssignees = new Set(tickets.map(t => t.assignedTo));
+
   const availableUsers = users.filter(user => {
-    if (user.username === ticket.assignedTo) return false;
+    if (currentAssignees.has(user.username)) return false;
     if (isCurrentUserSuperAdmin) return true;
     return user.role !== 'مدیر';
   });
@@ -55,15 +63,17 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
     return user ? `${user.firstName} ${user.lastName}` : username;
   };
   
-  const currentAssigneeName = getAssigneeName(ticket.assignedTo);
+  const currentAssigneeName = isGroupRefer 
+    ? 'چند کاربر' 
+    : getAssigneeName(firstTicket.assignedTo);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md">
       <div className="p-6">
         <h3 className="text-lg font-medium leading-6 text-cyan-600 mb-2">
-          ارجاع تیکت: <span className="font-mono text-base">#{ticket.ticketNumber}</span>
+          {isGroupRefer ? `ارجاع ${toPersianDigits(tickets.length)} تیکت` : `ارجاع تیکت: #${toPersianDigits(firstTicket.ticketNumber)}`}
         </h3>
-        <p className="text-sm text-gray-500 mb-4">"{ticket.title}"</p>
+        {!isGroupRefer && <p className="text-sm text-gray-500 mb-4">"{firstTicket.title}"</p>}
 
         <div className="space-y-4">
           <div>
@@ -80,7 +90,11 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
               onChange={(e) => setNewAssignee(e.target.value)}
               className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
             >
-              <option value="" disabled>یک کاربر را انتخاب کنید</option>
+              {availableUsers.length > 0 ? (
+                 <option value="" disabled>یک کاربر را انتخاب کنید</option>
+              ) : (
+                 <option value="" disabled>کاربر دیگری برای ارجاع یافت نشد</option>
+              )}
               {availableUsers.map(user => (
                   <option key={user.id} value={user.username}>
                     {user.firstName} {user.lastName}
