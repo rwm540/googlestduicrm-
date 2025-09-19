@@ -102,7 +102,12 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
             sourceTickets = allCompletedTickets.filter(t => t.assignedTo === currentUser.username);
         }
     } else {
-        sourceTickets = tickets.filter(ticket => ticket.status !== 'ارجاع شده' && ticket.status !== 'اتمام یافته');
+        const activeTickets = tickets.filter(ticket => ticket.status !== 'ارجاع شده' && ticket.status !== 'اتمام یافته');
+        if (currentUser.role === 'مدیر') {
+            sourceTickets = activeTickets;
+        } else {
+            sourceTickets = activeTickets.filter(ticket => ticket.assignedTo === currentUser.username);
+        }
     }
     
     const uniqueTickets = Array.from(new Map(sourceTickets.map(ticket => [ticket.id, ticket])).values());
