@@ -21,7 +21,15 @@ const allMenus: { id: MenuItemId; label: string }[] = [
   { id: 'referrals', label: 'ارجاعات' },
 ];
 
-const allRoles: UserRole[] = ['مدیر', 'پشتیانی', 'فروش', 'برنامه نویس'];
+const allRoles: UserRole[] = [
+  'مدیر',
+  'مسئول فروش',
+  'مسئول پشتیبان',
+  'مسئول برنامه نویس',
+  'کارشناس فروش',
+  'کارشناس پشتیبانی',
+  'کارشناس برنامه نویس',
+];
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, user, users }) => {
   const [firstName, setFirstName] = useState('');
@@ -30,7 +38,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accessibleMenus, setAccessibleMenus] = useState<MenuItemId[]>([]);
-  const [role, setRole] = useState<UserRole>('پشتیانی');
+  const [role, setRole] = useState<UserRole>('کارشناس پشتیبانی');
   const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
@@ -39,7 +47,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
       setLastName(user.lastName);
       setUsername(user.username);
       setAccessibleMenus(user.accessibleMenus || []);
-      setRole(user.role || 'پشتیانی');
+      setRole(user.role || 'کارشناس پشتیبانی');
     } 
     
     if (!isOpen) {
@@ -50,7 +58,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
             setPassword('');
             setConfirmPassword('');
             setAccessibleMenus([]);
-            setRole('پشتیانی');
+            setRole('کارشناس پشتیبانی');
             setErrors([]);
         }, 300); // Reset after closing animation
     }

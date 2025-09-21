@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { Ticket, User } from '../types';
+import { Ticket, User, UserRole } from '../types';
 import Modal from './Modal';
 import { toPersianDigits } from '../utils/dateFormatter';
 
@@ -13,28 +14,48 @@ interface ReferTicketModalProps {
   currentUser: User;
 }
 
+const isLead = (role: UserRole) => role.startsWith('مسئول');
+const isSpecialist = (role: UserRole) => role.startsWith('کارشناس');
+
+const getDepartment = (role: UserRole): string => {
+    if (role.includes('پشتیبان')) return 'پشتیبان';
+    if (role.includes('برنامه نویس')) return 'برنامه نویس';
+    if (role.includes('فروش')) return 'فروش';
+    return '';
+};
+
 const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, onRefer, tickets, users, currentUser }) => {
   const [newAssignee, setNewAssignee] = useState('');
 
   useEffect(() => {
-    if (isOpen && tickets && tickets.length > 0) {
-      const isCurrentUserSuperAdmin = currentUser.role === 'مدیر' && currentUser.accessibleMenus.includes('users');
-      const currentAssignees = new Set(tickets.map(t => t.assignedTo));
-      
-      const availableUsers = users.filter(user => {
+    if (!isOpen || !tickets || tickets.length === 0) {
+      setNewAssignee('');
+      return;
+    }
+
+    const currentAssignees = new Set(tickets.map(t => t.assignedTo));
+    
+    const availableUsers = users.filter(user => {
         if (currentAssignees.has(user.username)) return false; // Exclude current assignees
-        if (isCurrentUserSuperAdmin) return true;
-        return user.role !== 'مدیر'; // Non-admins can't assign to admins
+        
+        if (currentUser.role === 'مدیر') {
+            return isLead(user.role); // Admin refers to Leads
+        }
+        if (isLead(currentUser.role)) {
+            const currentUserDept = getDepartment(currentUser.role);
+            const targetUserDept = getDepartment(user.role);
+            // Lead can refer to Admin, other Leads, or Specialists in their own department
+            return user.role === 'مدیر' || isLead(user.role) || (isSpecialist(user.role) && currentUserDept === targetUserDept);
+        }
+        return false; // Specialists cannot refer
       });
 
-      if (availableUsers.length > 0) {
+    if (availableUsers.length > 0) {
         setNewAssignee(availableUsers[0].username);
-      } else {
-        setNewAssignee('');
-      }
     } else {
-      setNewAssignee(''); // Reset on close
+        setNewAssignee('');
     }
+
   }, [isOpen, tickets, users, currentUser]);
 
   if (!tickets || tickets.length === 0) return null;
@@ -42,13 +63,19 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
   const isGroupRefer = tickets.length > 1;
   const firstTicket = tickets[0];
   
-  const isCurrentUserSuperAdmin = currentUser.role === 'مدیر' && currentUser.accessibleMenus.includes('users');
   const currentAssignees = new Set(tickets.map(t => t.assignedTo));
 
   const availableUsers = users.filter(user => {
     if (currentAssignees.has(user.username)) return false;
-    if (isCurrentUserSuperAdmin) return true;
-    return user.role !== 'مدیر';
+    if (currentUser.role === 'مدیر') {
+        return isLead(user.role);
+    }
+    if (isLead(currentUser.role)) {
+        const currentUserDept = getDepartment(currentUser.role);
+        const targetUserDept = getDepartment(user.role);
+        return user.role === 'مدیر' || isLead(user.role) || (isSpecialist(user.role) && currentUserDept === targetUserDept);
+    }
+    return false;
   });
 
   const handleRefer = () => {
@@ -97,7 +124,7 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
               )}
               {availableUsers.map(user => (
                   <option key={user.id} value={user.username}>
-                    {user.firstName} {user.lastName}
+                    {user.firstName} {user.lastName} ({user.role})
                   </option>
                 ))}
             </select>

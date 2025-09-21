@@ -1,5 +1,5 @@
 import React from 'react';
-import { PurchaseContract, ContractStatus } from '../types';
+import { PurchaseContract, ContractStatus, User } from '../types';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { getPurchaseContractStatusByDate, toPersianDigits, formatCurrency } from '../utils/dateFormatter';
@@ -11,6 +11,7 @@ interface PurchaseContractTableProps {
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
   onToggleSelectAll: () => void;
+  currentUser: User;
 }
 
 const statusStyles: { [key in ContractStatus]: string } = {
@@ -20,7 +21,7 @@ const statusStyles: { [key in ContractStatus]: string } = {
   'لغو شده': 'bg-red-100 text-red-700',
 };
 
-const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll }) => {
+const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
   const allOnPageSelected = contracts.length > 0 && contracts.every(c => selectedIds.includes(c.id));
 
   if (contracts.length === 0) {
@@ -70,12 +71,14 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                           >
                               <EditIcon />
                           </button>
-                          <button
-                              onClick={() => onDelete(contract.id)}
-                              className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
-                          >
-                              <TrashIcon />
-                          </button>
+                          {currentUser.role === 'مدیر' && (
+                            <button
+                                onClick={() => onDelete(contract.id)}
+                                className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                            >
+                                <TrashIcon />
+                            </button>
+                          )}
                       </div>
                   </div>
               </div>
@@ -138,13 +141,15 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                     >
                       <EditIcon />
                     </button>
-                    <button
-                      onClick={() => onDelete(contract.id)}
-                      className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
-                      aria-label={`حذف قرارداد ${contract.contractId}`}
-                    >
-                      <TrashIcon />
-                    </button>
+                    {currentUser.role === 'مدیر' && (
+                      <button
+                        onClick={() => onDelete(contract.id)}
+                        className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                        aria-label={`حذف قرارداد ${contract.contractId}`}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

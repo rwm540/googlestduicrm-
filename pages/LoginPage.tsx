@@ -4,26 +4,42 @@ import Alert from '../components/Alert';
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
-  users: User[];
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors([]);
+    setLoading(true);
 
-    const user = users.find(
-      u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-    );
+    try {
+      // In a real-world application, this would be a single POST request to an /api/login endpoint.
+      // For this project's scope, we fetch all users and check credentials on the client-side.
+      // This is NOT secure and is for demonstration purposes only.
+      const response = await fetch('http://localhost:3001/api/users');
+      if (!response.ok) {
+        throw new Error('Failed to connect to the server.');
+      }
+      const users: User[] = await response.json();
+      
+      const user = users.find(
+        u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+      );
 
-    if (user) {
-      onLogin(user);
-    } else {
-      setErrors(['نام کاربری یا رمز عبور اشتباه است.']);
+      if (user) {
+        onLogin(user);
+      } else {
+        setErrors(['نام کاربری یا رمز عبور اشتباه است.']);
+      }
+    } catch(error: any) {
+        setErrors([error.message || 'خطا در برقراری ارتباط با سرور.']);
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -53,7 +69,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users }) => {
                 autoComplete="username"
                 required
                 className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-                placeholder="مثلا: ali.rezaei"
+                placeholder="admin"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -69,7 +85,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users }) => {
                 autoComplete="current-password"
                 required
                 className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-                placeholder="••••••••"
+                placeholder="admin"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -78,9 +94,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users }) => {
           <div className="pt-2">
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-semibold rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-semibold rounded-md text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-colors disabled:bg-gray-400"
             >
-              ورود
+              {loading ? 'در حال ورود...' : 'ورود'}
             </button>
           </div>
         </form>

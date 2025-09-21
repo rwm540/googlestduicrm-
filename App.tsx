@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import io from 'socket.io-client';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
 import UserManagement from './pages/UserManagement';
@@ -12,166 +13,149 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import ReferralsPage from './pages/ReferralsPage';
 
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral } from './types';
-import { initialUsers, initialCustomers, initialPurchaseContracts, initialSupportContracts, initialTickets } from './data';
 import { MenuIcon } from './components/icons/MenuIcon';
-import { formatJalaali, formatJalaaliDateTime } from './utils/dateFormatter';
 
 // Declare globals loaded from CDN
 declare const jalaali: any;
 
+const API_URL = 'http://localhost:3001/api';
+
 function App() {
   // State for data
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
-  const [purchaseContracts, setPurchaseContracts] = useState<PurchaseContract[]>(initialPurchaseContracts);
-  const [supportContracts, setSupportContracts] = useState<SupportContract[]>(initialSupportContracts);
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [users, setUsers] = useState<User[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [purchaseContracts, setPurchaseContracts] = useState<PurchaseContract[]>([]);
+  const [supportContracts, setSupportContracts] = useState<SupportContract[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   
   // App state
   const [activePage, setActivePage] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleSaveUser = (userData: User | Omit<User, 'id'>) => {
-    if ('id' in userData) setUsers(users.map(u => u.id === userData.id ? { ...u, ...userData } as User : u));
-    else setUsers([...users, { ...userData, id: Date.now() } as User]);
+
+  const fetchData = useCallback(async (entity?: string) => {
+    try {
+      const fetchPromises = {
+        users: () => fetch(`${API_URL}/users`).then(res => res.json()),
+        customers: () => fetch(`${API_URL}/customers`).then(res => res.json()),
+        contracts: () => fetch(`${API_URL}/contracts`).then(res => res.json()),
+        tickets: () => fetch(`${API_URL}/tickets`).then(res => res.json()),
+      };
+
+      if (entity) {
+         switch (entity) {
+            case 'users': setUsers(await fetchPromises.users()); break;
+            case 'customers': setCustomers(await fetchPromises.customers()); break;
+            case 'contracts': 
+                const { purchase, support } = await fetchPromises.contracts();
+                setPurchaseContracts(purchase);
+                setSupportContracts(support);
+                break;
+            case 'tickets':
+                const { tickets: fetchedTickets, referrals: fetchedReferrals } = await fetchPromises.tickets();
+                setTickets(fetchedTickets);
+                setReferrals(fetchedReferrals);
+                break;
+         }
+      } else {
+         const [usersData, customersData, contractsData, ticketsData] = await Promise.all([
+            fetchPromises.users(),
+            fetchPromises.customers(),
+            fetchPromises.contracts(),
+            fetchPromises.tickets(),
+         ]);
+         setUsers(usersData);
+         setCustomers(customersData);
+         setPurchaseContracts(contractsData.purchase);
+         setSupportContracts(contractsData.support);
+         setTickets(ticketsData.tickets);
+         setReferrals(ticketsData.referrals);
+      }
+    } catch (error) {
+        console.error("Failed to fetch data:", error);
+    } finally {
+        setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  
+  useEffect(() => {
+    const socket = io('http://localhost:3001');
+
+    socket.on('connect', () => console.log('Connected to WebSocket server'));
+    socket.on('data_changed', (data: { entity: string }) => {
+        console.log(`Data changed for: ${data.entity}, refetching...`);
+        fetchData(data.entity);
+    });
+    socket.on('disconnect', () => console.log('Disconnected from WebSocket server'));
+
+    return () => {
+        socket.disconnect();
+    };
+  }, [fetchData]);
+
+  const apiRequest = async (url: string, method: string, body?: any) => {
+    try {
+      const response = await fetch(`${API_URL}${url}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        ...(body && { body: JSON.stringify(body) }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'API request failed');
+      }
+      return response.json();
+    } catch (error) {
+      console.error(`Error with ${method} ${url}:`, error);
+      // Here you could show an error toast to the user
+    }
   };
 
-  const handleDeleteUser = (userId: number) => setUsers(users.filter(u => u.id !== userId));
-  const handleDeleteUsers = (userIds: number[]) => setUsers(users.filter(u => !userIds.includes(u.id)));
+  // --- CRUD Handlers ---
+  const handleSaveUser = (userData: User | Omit<User, 'id'>) => {
+    const isEditing = 'id' in userData;
+    apiRequest(isEditing ? `/users/${userData.id}` : '/users', isEditing ? 'PUT' : 'POST', userData);
+  };
+  const handleDeleteUser = (userId: number) => apiRequest(`/users/${userId}`, 'DELETE');
+  const handleDeleteUsers = (userIds: number[]) => apiRequest('/users/delete-many', 'POST', { ids: userIds });
   
   const handleSaveCustomer = (customerData: Customer | Omit<Customer, 'id'>) => {
-    if ('id' in customerData) setCustomers(customers.map(c => c.id === customerData.id ? { ...c, ...customerData } : c));
-    else setCustomers([...customers, { ...customerData, id: Date.now() } as Customer]);
+    const isEditing = 'id' in customerData;
+    apiRequest(isEditing ? `/customers/${customerData.id}` : '/customers', isEditing ? 'PUT' : 'POST', customerData);
   };
-
-  const handleDeleteCustomer = (customerId: number) => setCustomers(customers.filter(c => c.id !== customerId));
-  const handleDeleteCustomers = (customerIds: number[]) => setCustomers(customers.filter(c => !customerIds.includes(c.id)));
+  const handleDeleteCustomer = (customerId: number) => apiRequest(`/customers/${customerId}`, 'DELETE');
+  const handleDeleteCustomers = (customerIds: number[]) => apiRequest('/customers/delete-many', 'POST', { ids: customerIds });
 
   const handleSavePurchaseContract = (contractData: PurchaseContract | Omit<PurchaseContract, 'id'>) => {
-    if ('id' in contractData) setPurchaseContracts(purchaseContracts.map(c => c.id === contractData.id ? { ...c, ...contractData } : c));
-    else setPurchaseContracts([...purchaseContracts, { ...contractData, id: Date.now() } as PurchaseContract]);
+    const isEditing = 'id' in contractData;
+    apiRequest(isEditing ? `/contracts/purchase/${contractData.id}` : '/contracts/purchase', isEditing ? 'PUT' : 'POST', contractData);
   };
-
-  const handleDeletePurchaseContract = (contractId: number) => setPurchaseContracts(purchaseContracts.filter(c => c.id !== contractId));
-  const handleDeletePurchaseContracts = (contractIds: number[]) => setPurchaseContracts(purchaseContracts.filter(c => !contractIds.includes(c.id)));
+  const handleDeletePurchaseContract = (contractId: number) => apiRequest(`/contracts/purchase/${contractId}`, 'DELETE');
+  const handleDeletePurchaseContracts = (contractIds: number[]) => apiRequest('/contracts/purchase/delete-many', 'POST', { ids: contractIds });
   
   const handleSaveSupportContract = (contractData: SupportContract | Omit<SupportContract, 'id'>) => {
-    if ('id' in contractData) setSupportContracts(supportContracts.map(c => c.id === contractData.id ? { ...c, ...contractData } : c));
-    else setSupportContracts([...supportContracts, { ...contractData, id: Date.now() } as SupportContract]);
+    const isEditing = 'id' in contractData;
+    apiRequest(isEditing ? `/contracts/support/${contractData.id}` : '/contracts/support', isEditing ? 'PUT' : 'POST', contractData);
   };
-
-  const handleDeleteSupportContract = (contractId: number) => setSupportContracts(supportContracts.filter(c => c.id !== contractId));
-  const handleDeleteSupportContracts = (contractIds: number[]) => setSupportContracts(supportContracts.filter(c => !contractIds.includes(c.id)));
+  const handleDeleteSupportContract = (contractId: number) => apiRequest(`/contracts/support/${contractId}`, 'DELETE');
+  const handleDeleteSupportContracts = (contractIds: number[]) => apiRequest('/contracts/support/delete-many', 'POST', { ids: contractIds });
   
   const handleSaveTicket = (ticketData: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => {
-      const now = new Date();
-      if ('id' in ticketData) {
-          // Editing existing ticket - UPDATE editableUntil on every save
-          const updatedTicket = { 
-              ...ticketData,
-              editableUntil: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
-          } as Ticket;
-          if (isFromReferral) {
-              setReferrals(prev => prev.map(r => r.ticket.id === updatedTicket.id ? { ...r, ticket: updatedTicket } : r));
-          } else {
-              setTickets(prev => prev.map(t => t.id === updatedTicket.id ? updatedTicket : t));
-          }
-      } else {
-          // Creating new ticket
-          const lastTicketNum = tickets.length > 0 ? Math.max(...tickets.map(t => parseInt(t.ticketNumber.split('-')[2], 10) || 0)) : 100;
-          const newTicketNum = `T-${jalaali.toJalaali(now).jy}-${String(lastTicketNum + 1).padStart(3, '0')}`;
-          const newTicket = {
-              ...ticketData,
-              id: Date.now(),
-              ticketNumber: newTicketNum,
-              creationDateTime: formatJalaaliDateTime(now),
-              lastUpdateDate: formatJalaaliDateTime(now),
-              status: 'انجام نشده',
-              editableUntil: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
-              totalWorkDuration: 0,
-              updates: [],
-          } as Ticket;
-          setTickets(prev => [...prev, newTicket]);
-      }
+    const isEditing = 'id' in ticketData;
+    apiRequest(isEditing ? `/tickets/${ticketData.id}` : '/tickets', isEditing ? 'PUT' : 'POST', ticketData);
   };
 
-  const handleToggleWork = (itemId: number, isFromReferral: boolean) => {
-      const updateTicketWork = (ticket: Ticket): Ticket => {
-          // If the work is running, we stop it and mark it as finished.
-          if (ticket.status === 'در حال پیگیری' && ticket.workSessionStartedAt) {
-              const sessionStart = new Date(ticket.workSessionStartedAt);
-              const durationSeconds = (new Date().getTime() - sessionStart.getTime()) / 1000;
-              return { 
-                  ...ticket, 
-                  status: 'اتمام یافته', // Change status to 'Finished'
-                  workSessionStartedAt: undefined, 
-                  totalWorkDuration: ticket.totalWorkDuration + durationSeconds 
-              };
-          } 
-          // If the work is not started, we start it.
-          else if (ticket.status === 'انجام نشده') {
-              return { 
-                  ...ticket, 
-                  status: 'در حال پیگیری', 
-                  workSessionStartedAt: new Date().toISOString() 
-              };
-          }
-          // For any other status, do nothing.
-          return ticket;
-      };
-
-      if (isFromReferral) {
-          setReferrals(prev => prev.map(r => r.ticket.id === itemId ? { ...r, ticket: updateTicketWork(r.ticket) } : r));
-      } else {
-          setTickets(prev => prev.map(t => t.id === itemId ? updateTicketWork(t) : t));
-      }
-  };
+  const handleToggleWork = (itemId: number) => apiRequest(`/tickets/${itemId}/toggle-work`, 'POST');
   
   const handleReferTicket = (itemId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => {
-      let ticketToRefer: Ticket;
-      
-      if (isFromReferral) {
-          const referral = referrals.find(r => r.ticket.id === itemId);
-          if (!referral) return;
-          ticketToRefer = referral.ticket;
-          setReferrals(prev => prev.filter(r => r.ticket.id !== itemId));
-      } else {
-          const ticket = tickets.find(t => t.id === itemId);
-          if (!ticket) return;
-          ticketToRefer = ticket;
-          setTickets(prev => prev.map(t => t.id === itemId ? { ...t, status: 'ارجاع شده' } : t));
-      }
-      
-      const now = new Date();
-      const newReferralTicket: Ticket = {
-          ...ticketToRefer,
-          id: Date.now(),
-          assignedTo: referredToUsername,
-          lastUpdateDate: formatJalaaliDateTime(now),
-          // status, workSessionStartedAt, and totalWorkDuration are preserved from ticketToRefer
-          editableUntil: ticketToRefer.editableUntil,
-          updates: [
-            ...ticketToRefer.updates,
-            {
-              id: Date.now() + 1, // Ensure unique ID
-              author: referredBy.username,
-              date: formatJalaaliDateTime(now),
-              description: `ارجاع از ${referredBy.username} به ${referredToUsername}`,
-              timeSpent: 0
-            }
-          ],
-      };
-      
-      const newReferral: Referral = {
-          id: newReferralTicket.id,
-          ticket: newReferralTicket,
-          referredBy: referredBy.username,
-          referredTo: referredToUsername,
-          referralDate: now.toISOString(),
-      };
-      setReferrals(prev => [...prev, newReferral]);
+      apiRequest(`/tickets/${itemId}/refer`, 'POST', { referredTo: referredToUsername, isFromReferral, referredBy: referredBy.username });
   };
 
   const handleLogin = (user: User) => {
@@ -182,7 +166,15 @@ function App() {
   
   const handleLogout = () => setCurrentUser(null);
 
-  if (!currentUser) return <LoginPage onLogin={handleLogin} users={users} />;
+  if (loading && !currentUser) {
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <p>در حال بارگذاری...</p>
+        </div>
+    );
+  }
+
+  if (!currentUser) return <LoginPage onLogin={handleLogin} />;
   
   const hasAccess = (pageId: string) => currentUser.accessibleMenus.includes(pageId as any);
 
@@ -191,13 +183,13 @@ function App() {
     
     switch (activePage) {
       case 'dashboard': return <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />;
-      case 'users': return <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteUsers} />;
-      case 'customers': return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteCustomers} />;
+      case 'users': return <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteUsers} currentUser={currentUser} />;
+      case 'customers': return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteCustomers} currentUser={currentUser} />;
       case 'contracts': return (
         <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
            <main className="max-w-7xl mx-auto">
-            <div className="mb-8"><PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeletePurchaseContracts} /></div>
-            <div className="mt-12"><SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteSupportContracts} /></div>
+            <div className="mb-8"><PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeletePurchaseContracts} currentUser={currentUser} /></div>
+            <div className="mt-12"><SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteSupportContracts} currentUser={currentUser} /></div>
           </main>
         </div>
       );

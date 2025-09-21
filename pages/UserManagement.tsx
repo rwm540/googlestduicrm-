@@ -12,11 +12,12 @@ interface UserManagementProps {
   onSave: (user: User | Omit<User, 'id'>) => void;
   onDelete: (userId: number) => void;
   onDeleteMany: (userIds: number[]) => void;
+  currentUser: User;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete, onDeleteMany }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete, onDeleteMany, currentUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -108,7 +109,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
                     onChange={handleSearchChange}
                     className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                 />
-                {selectedIds.length > 0 && (
+                {currentUser.role === 'مدیر' && selectedIds.length > 0 && (
                   <button
                     onClick={handleDeleteSelected}
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-sm whitespace-nowrap"
@@ -135,6 +136,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
               selectedIds={selectedIds}
               onToggleSelect={handleToggleSelect}
               onToggleSelectAll={handleToggleSelectAll}
+              currentUser={currentUser}
             />
             <Pagination 
                 currentPage={currentPage}

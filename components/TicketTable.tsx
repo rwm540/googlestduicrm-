@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Ticket, TicketStatus, TicketPriority, Customer, User } from '../types';
 import { ClockIcon } from './icons/ClockIcon';
@@ -20,6 +21,7 @@ interface TicketTableProps {
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
   onToggleSelectAll: () => void;
+  currentUser: User;
 }
 
 const statusStyles: { [key in TicketStatus]: { icon: React.ReactNode, text: string, color: string } } = {
@@ -41,7 +43,7 @@ const toPersianDigits = (n: string | number): string => {
   return String(n).replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
 };
 
-const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll }) => {
+const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
   
   const allOnPageSelected = tickets.length > 0 && tickets.every(t => selectedIds.includes(t.id));
   
@@ -130,7 +132,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                 </td>
                 <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>{getAssigneeName(ticket.assignedTo)}</td>
                 <td className="px-6 py-4 text-left">
-                  <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} />
+                  <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} />
                 </td>
               </tr>
             ))}
@@ -175,7 +177,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                 </div>
             </div>
             <div className="border-t pt-2">
-                 <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} />
+                 <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} />
             </div>
           </div>
         ))}

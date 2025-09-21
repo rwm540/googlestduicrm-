@@ -1,6 +1,14 @@
 export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals';
 
-export type UserRole = 'مدیر' | 'پشتیانی' | 'فروش' | 'برنامه نویس';
+export type UserRole =
+  | 'مدیر'
+  | 'مسئول پشتیبان'
+  | 'مسئول برنامه نویس'
+  | 'مسئول فروش'
+  | 'کارشناس فروش'
+  | 'کارشناس پشتیبانی'
+  | 'کارشناس برنامه نویس';
+
 
 export interface User {
   id: number;
@@ -175,7 +183,6 @@ export type TicketType =
   | 'چاپ'
   | 'پایان سال'
   | 'دمو'
-  // FIX: Added missing ticket types to resolve errors in initial data.
   | 'خطا'
   | 'درخواست'
   | 'مشکل';
@@ -217,8 +224,7 @@ export interface Referral {
   referredTo: string; // username of new assignee
   referralDate: string; // ISO string
 }
-
-// FIX: Add missing type definitions for Attendance, Leave, and Mission features.
+// Fix: Added missing HR-related types to resolve import errors.
 export type AttendanceType = 'ورود' | 'خروج';
 
 export interface AttendanceRecord {
@@ -235,10 +241,10 @@ export interface LeaveRequest {
   id: number;
   userId: number;
   leaveType: LeaveType;
-  startDate: string;
-  endDate: string;
-  startTime?: string;
-  endTime?: string;
+  startDate: string; // Jalaali date string
+  endDate: string; // Jalaali date string
+  startTime?: string; // e.g., "09:00"
+  endTime?: string; // e.g., "17:00"
   reason: string;
   status: LeaveRequestStatus;
   requestedAt: string; // ISO string
@@ -254,8 +260,8 @@ export interface Mission {
   id: number;
   title: string;
   description: string;
-  assignedTo: number; // user id
-  createdBy: number; // user id
+  assignedTo: number; // User ID
+  createdBy: number; // User ID
   tasks: MissionTask[];
   startTimestamp: string; // ISO string
   endTimestamp: string; // ISO string

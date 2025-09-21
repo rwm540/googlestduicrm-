@@ -11,6 +11,7 @@ interface UserTableProps {
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
   onToggleSelectAll: () => void;
+  currentUser: User;
 }
 
 const menuConfig: Record<MenuItemId, { label: string; color: string }> = {
@@ -23,7 +24,7 @@ const menuConfig: Record<MenuItemId, { label: string; color: string }> = {
   referrals: { label: 'ارجاعات', color: 'bg-amber-100 text-amber-700' },
 };
 
-const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll }) => {
+const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
   const allOnPageSelected = users.length > 0 && users.every(u => selectedIds.includes(u.id));
 
   if (users.length === 0) {
@@ -87,13 +88,15 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
                 >
                   <EditIcon />
                 </button>
-                <button
-                  onClick={() => onDelete(user.id)}
-                  className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
-                  aria-label={`حذف ${user.firstName} ${user.lastName}`}
-                >
-                  <TrashIcon />
-                </button>
+                {currentUser.role === 'مدیر' && (
+                  <button
+                    onClick={() => onDelete(user.id)}
+                    className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                    aria-label={`حذف ${user.firstName} ${user.lastName}`}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -170,13 +173,15 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
                     >
                       <EditIcon />
                     </button>
-                    <button
-                      onClick={() => onDelete(user.id)}
-                      className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
-                      aria-label={`حذف ${user.firstName} ${user.lastName}`}
-                    >
-                      <TrashIcon />
-                    </button>
+                    {currentUser.role === 'مدیر' && (
+                      <button
+                        onClick={() => onDelete(user.id)}
+                        className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                        aria-label={`حذف ${user.firstName} ${user.lastName}`}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

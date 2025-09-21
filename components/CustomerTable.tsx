@@ -1,5 +1,5 @@
 import React from 'react';
-import { Customer, CustomerLevel } from '../types';
+import { Customer, CustomerLevel, User } from '../types';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import Avatar from './Avatar';
@@ -11,6 +11,7 @@ interface CustomerTableProps {
   selectedIds: number[];
   onToggleSelect: (id: number) => void;
   onToggleSelectAll: () => void;
+  currentUser: User;
 }
 
 const levelStyles: { [key in CustomerLevel]: string } = {
@@ -26,7 +27,7 @@ const toPersianDigits = (n: string | number): string => {
 };
 
 
-const CustomerTable: React.FC<CustomerTableProps> = ({ customers, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll }) => {
+const CustomerTable: React.FC<CustomerTableProps> = ({ customers, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
   const allOnPageSelected = customers.length > 0 && customers.every(c => selectedIds.includes(c.id));
 
   if (customers.length === 0) {
@@ -79,13 +80,15 @@ const CustomerTable: React.FC<CustomerTableProps> = ({ customers, onEdit, onDele
                     >
                         <EditIcon />
                     </button>
-                    <button
-                        onClick={() => onDelete(customer.id)}
-                        className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
-                        aria-label={`حذف ${customer.firstName}`}
-                    >
-                        <TrashIcon />
-                    </button>
+                    {currentUser.role === 'مدیر' && (
+                      <button
+                          onClick={() => onDelete(customer.id)}
+                          className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                          aria-label={`حذف ${customer.firstName}`}
+                      >
+                          <TrashIcon />
+                      </button>
+                    )}
                 </div>
             </div>
           </div>
@@ -152,13 +155,15 @@ const CustomerTable: React.FC<CustomerTableProps> = ({ customers, onEdit, onDele
                     >
                       <EditIcon />
                     </button>
-                    <button
-                      onClick={() => onDelete(customer.id)}
-                      className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
-                      aria-label={`حذف ${customer.companyName}`}
-                    >
-                      <TrashIcon />
-                    </button>
+                    {currentUser.role === 'مدیر' && (
+                      <button
+                        onClick={() => onDelete(customer.id)}
+                        className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                        aria-label={`حذف ${customer.companyName}`}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

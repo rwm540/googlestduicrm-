@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Ticket, Customer, User, Referral, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -19,7 +20,7 @@ interface TicketsProps {
   supportContracts: SupportContract[];
   onSave: (ticket: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => void;
   onReferTicket: (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => void;
-  onToggleWork: (ticketId: number, isFromReferral: boolean) => void;
+  onToggleWork: (ticketId: number) => void;
   currentUser: User;
 }
 
@@ -237,12 +238,13 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
                 users={users}
                 onEdit={handleOpenModal}
                 onRefer={handleOpenReferModal}
-                onToggleWork={(ticketId) => onToggleWork(ticketId, referredTicketIds.has(ticketId))}
+                onToggleWork={(ticketId) => onToggleWork(ticketId)}
                 isReferralTable={false}
                 emptyMessage={showCompleted ? 'هیچ تیکت اتمام یافته‌ای برای نمایش وجود ندارد.' : 'هیچ تیکت فعالی یافت نشد. برای شروع یک تیکت جدید ایجاد کنید.'}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
                 onToggleSelectAll={handleToggleSelectAll}
+                currentUser={currentUser}
               />
               <Pagination 
                   currentPage={currentPage}
@@ -265,6 +267,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           customers={customers}
           users={users}
           currentUser={currentUser}
+          referrals={referrals}
         />
         <ReferTicketModal
           isOpen={isReferModalOpen}

@@ -1,12 +1,14 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel } from '../types';
+import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel, Referral } from '../types';
 import Modal from './Modal';
 import Alert from './Alert';
 import { formatJalaaliDateTime } from '../utils/dateFormatter';
 import { FileUploadIcon } from './icons/FileUploadIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PaperClipIcon } from './icons/PaperClipIcon';
+import ReferralHistoryTimeline from './ReferralHistoryTimeline';
 
 interface TicketFormModalProps {
   isOpen: boolean;
@@ -16,6 +18,7 @@ interface TicketFormModalProps {
   customers: Customer[];
   users: User[];
   currentUser: User;
+  referrals: Referral[];
 }
 
 // FIX: Add missing ticket types to the options so they appear in the form dropdown.
@@ -52,7 +55,7 @@ const inputClass = "block w-full bg-gray-50 border border-gray-300 rounded-md sh
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 const textareaClass = `${inputClass} min-h-[120px]`;
 
-const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSave, ticket, customers, users, currentUser }) => {
+const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSave, ticket, customers, users, currentUser, referrals }) => {
   const [formData, setFormData] = useState<Ticket | Omit<Ticket, 'id'>>(() => getInitialState(currentUser));
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -61,6 +64,9 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   const modalTitle = ticket 
     ? (isReadOnly ? `مشاهده تیکت #${ticket.ticketNumber}` : `ویرایش تیکت #${ticket.ticketNumber}`)
     : 'ایجاد تیکت جدید';
+  
+  const isLead = currentUser.role.startsWith('مسئول');
+  const ticketHistory = ticket ? referrals.filter(r => r.ticket.id === ticket.id).sort((a,b) => new Date(a.referralDate).getTime() - new Date(b.referralDate).getTime()) : [];
   
   useEffect(() => {
     if (isOpen) {
@@ -244,6 +250,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                 </div>
                )}
           </div>
+          
+          {(currentUser.role === 'مدیر' || isLead) && ticketHistory.length > 0 && (
+             <div>
+                <label className={labelClass}>تاریخچه ارجاعات</label>
+                <ReferralHistoryTimeline history={ticketHistory} users={users} />
+             </div>
+          )}
 
         </div>
 

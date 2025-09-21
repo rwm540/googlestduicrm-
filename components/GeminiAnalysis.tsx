@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { User } from '../types';
@@ -55,9 +56,10 @@ const GeminiAnalysis: React.FC<GeminiAnalysisProps> = ({ users }) => {
 
       // 1. Data Preparation
       const totalUsers = users.length;
-      const supportUsers = users.filter(u => u.role === 'پشتیانی').length;
-      const devUsers = users.filter(u => u.role === 'برنامه نویس').length;
-      const salesUsers = users.filter(u => u.role === 'فروش').length;
+      // FIX: Corrected filter conditions to find users by role, and fixed a typo.
+      const supportUsers = users.filter(u => u.role.includes('پشتیبان')).length;
+      const devUsers = users.filter(u => u.role.includes('برنامه نویس')).length;
+      const salesUsers = users.filter(u => u.role.includes('فروش')).length;
       const adminUsers = users.filter(u => u.role === 'مدیر').length;
       
       const dataSummary = `

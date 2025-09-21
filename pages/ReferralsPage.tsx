@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { User, Referral, Customer, Ticket, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -18,7 +19,7 @@ interface ReferralsPageProps {
   supportContracts: SupportContract[];
   onSave: (ticket: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => void;
   onReferTicket: (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => void;
-  onToggleWork: (ticketId: number, isFromReferral: boolean) => void;
+  onToggleWork: (ticketId: number) => void;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -178,11 +179,12 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
           users={users}
           onEdit={handleOpenModal}
           onRefer={handleOpenReferModal}
-          onToggleWork={(ticketId) => onToggleWork(ticketId, true)}
+          onToggleWork={(ticketId) => onToggleWork(ticketId)}
           isReferralTable={true}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
           onToggleSelectAll={handleToggleSelectAll}
+          currentUser={currentUser}
         />
         <Pagination 
             currentPage={currentPage}
@@ -201,6 +203,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
             customers={customers}
             users={users}
             currentUser={currentUser}
+            referrals={referrals}
           />
         )}
         

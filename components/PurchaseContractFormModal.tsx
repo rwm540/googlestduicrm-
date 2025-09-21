@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PurchaseContract, User, Customer, ContractType, ContractStatus, CustomerType, NetworkSupport, PaymentMethod, PaymentStatus } from '../types';
 import Modal from './Modal';
@@ -125,7 +126,8 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
   const [errors, setErrors] = useState<string[]>([]);
   const [formattedTotalAmount, setFormattedTotalAmount] = useState('');
   const [formattedPrepayment, setFormattedPrepayment] = useState('');
-  const salesUsers = users.filter(user => user.role === 'فروش');
+  // FIX: Corrected filter condition to find users with sales-related roles.
+  const salesUsers = users.filter(user => user.role.includes('فروش'));
 
   useEffect(() => {
     if (isOpen) {
