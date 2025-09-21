@@ -2,7 +2,8 @@
 import { Router } from 'express';
 import prisma from '../db';
 // FIX: Use namespace import for Prisma to resolve module export issues.
-import * as PrismaScope from '@prisma/client';
+// FIX: Changed to named import for Prisma types for proper module resolution.
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -75,8 +76,8 @@ router.post('/', async (req, res) => {
                 creationDateTime: creationDateTime.toISOString(),
                 lastUpdateDate: creationDateTime.toISOString(),
                 editableUntil: editableUntil.toISOString(),
-                attachments: (attachments || []) as PrismaScope.Prisma.JsonArray,
-                updates: (updates || []) as PrismaScope.Prisma.JsonArray,
+                attachments: (attachments || []) as Prisma.JsonArray,
+                updates: (updates || []) as Prisma.JsonArray,
                 customer: { connect: { id: Number(customerId) } },
                 assignedTo: await connectUser(assignedTo),
             },
@@ -101,8 +102,8 @@ router.put('/:id', async (req, res) => {
             data: {
                 ...rest,
                 lastUpdateDate: new Date().toISOString(),
-                attachments: (attachments || []) as PrismaScope.Prisma.JsonArray,
-                updates: (updates || []) as PrismaScope.Prisma.JsonArray,
+                attachments: (attachments || []) as Prisma.JsonArray,
+                updates: (updates || []) as Prisma.JsonArray,
                 customer: { connect: { id: Number(customerId) } },
                 assignedTo: await connectUser(assignedTo),
             },

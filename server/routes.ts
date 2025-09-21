@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import authRouter from './api/auth';
 import usersRouter from './api/users';
 import customersRouter from './api/customers';
 import contractsRouter from './api/contracts';
@@ -7,6 +8,9 @@ import ticketsRouter from './api/tickets';
 // import hrRouter from './api/hr';
 
 const router = Router();
+
+// Authentication route
+router.use('/auth', authRouter);
 
 // Assign entity routers to their base paths
 router.use('/users', usersRouter);

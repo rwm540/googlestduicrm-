@@ -1,17 +1,32 @@
-
 import { Router } from 'express';
 import prisma from '../db';
 // FIX: Use namespace import for Prisma to resolve module export issues.
-import * as PrismaScope from '@prisma/client';
+// FIX: Changed to named import for Prisma types for proper module resolution.
+import { Prisma } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const router = Router();
+const saltRounds = 10;
+
+// Helper to exclude keys from an object
+function exclude<User, Key extends keyof User>(
+  user: User,
+  keys: Key[]
+): Omit<User, Key> {
+  // Create a new object to avoid mutating the original
+  const newUser = { ...user };
+  for (let key of keys) {
+    delete newUser[key];
+  }
+  return newUser;
+}
 
 // GET all users
 router.get('/', async (req, res) => {
     try {
         const users = await prisma.user.findMany();
-        // Convert JSON fields from Prisma's JsonValue to plain objects/arrays for the client
-        res.json(users.map(u => ({...u, accessibleMenus: u.accessibleMenus as any[]})));
+        const usersWithoutPasswords = users.map(user => exclude(user, ['password']));
+        res.json(usersWithoutPasswords.map(u => ({...u, accessibleMenus: u.accessibleMenus as any[]})));
     } catch (err: any) {
         res.status(500).json({ message: 'Error fetching users', error: err.message });
     }
@@ -20,16 +35,24 @@ router.get('/', async (req, res) => {
 // POST create a new user
 router.post('/', async (req, res) => {
     try {
-        const { accessibleMenus, ...restOfUser } = req.body;
-        // In a real app, hash the password before inserting
+        const { accessibleMenus, password, ...restOfUser } = req.body;
+        
+        if (!password) {
+            return res.status(400).json({ message: 'Password is required' });
+        }
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        
         const newUser = await prisma.user.create({
             data: {
                 ...restOfUser,
-                accessibleMenus: (accessibleMenus || []) as PrismaScope.Prisma.JsonArray,
+                password: hashedPassword,
+                accessibleMenus: (accessibleMenus || []) as Prisma.JsonArray,
             }
         });
+
         req.io.emit('data_changed', { entity: 'users' });
-        res.status(201).json({...newUser, accessibleMenus: newUser.accessibleMenus as any[]});
+        const userWithoutPassword = exclude(newUser, ['password']);
+        res.status(201).json({...userWithoutPassword, accessibleMenus: userWithoutPassword.accessibleMenus as any[]});
     } catch (err: any) {
         res.status(500).json({ message: 'Error creating user', error: err.message });
     }
@@ -43,11 +66,11 @@ router.put('/:id', async (req, res) => {
         
         const updatePayload: any = { ...restOfUser };
         if (accessibleMenus) {
-            updatePayload.accessibleMenus = accessibleMenus as PrismaScope.Prisma.JsonArray;
+            updatePayload.accessibleMenus = accessibleMenus as Prisma.JsonArray;
         }
-        // Only update password if a new one is provided
+        // Only hash and update password if a new one is provided
         if (password) {
-            updatePayload.password = password; // Again, should be hashed
+            updatePayload.password = await bcrypt.hash(password, saltRounds);
         }
 
         const updatedUser = await prisma.user.update({
@@ -55,12 +78,9 @@ router.put('/:id', async (req, res) => {
             data: updatePayload,
         });
 
-        if (updatedUser) {
-            req.io.emit('data_changed', { entity: 'users' });
-            res.json({...updatedUser, accessibleMenus: updatedUser.accessibleMenus as any[]});
-        } else {
-            res.status(404).json({ message: 'User not found' });
-        }
+        req.io.emit('data_changed', { entity: 'users' });
+        const userWithoutPassword = exclude(updatedUser, ['password']);
+        res.json({...userWithoutPassword, accessibleMenus: userWithoutPassword.accessibleMenus as any[]});
     } catch (err: any) {
         // Prisma throws specific errors for not found on update
         if (err.code === 'P2025') {

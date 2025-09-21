@@ -2,7 +2,8 @@
 import { Router } from 'express';
 import prisma from '../db';
 // FIX: Use namespace import for Prisma to resolve module export issues.
-import * as PrismaScope from '@prisma/client';
+// FIX: Changed to named import for Prisma types for proper module resolution.
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -34,10 +35,10 @@ router.post('/', async (req, res) => {
         const newCustomer = await prisma.customer.create({
             data: {
                 ...rest,
-                mobileNumbers: (mobileNumbers || []) as PrismaScope.Prisma.JsonArray,
-                emails: (emails || []) as PrismaScope.Prisma.JsonArray,
-                phone: (phone || []) as PrismaScope.Prisma.JsonArray,
-                paymentMethods: (paymentMethods || []) as PrismaScope.Prisma.JsonArray,
+                mobileNumbers: (mobileNumbers || []) as Prisma.JsonArray,
+                emails: (emails || []) as Prisma.JsonArray,
+                phone: (phone || []) as Prisma.JsonArray,
+                paymentMethods: (paymentMethods || []) as Prisma.JsonArray,
             }
         });
         req.io.emit('data_changed', { entity: 'customers' });
@@ -56,10 +57,10 @@ router.put('/:id', async (req, res) => {
             where: { id: Number(id) },
             data: {
                 ...rest,
-                mobileNumbers: (mobileNumbers || []) as PrismaScope.Prisma.JsonArray,
-                emails: (emails || []) as PrismaScope.Prisma.JsonArray,
-                phone: (phone || []) as PrismaScope.Prisma.JsonArray,
-                paymentMethods: (paymentMethods || []) as PrismaScope.Prisma.JsonArray,
+                mobileNumbers: (mobileNumbers || []) as Prisma.JsonArray,
+                emails: (emails || []) as Prisma.JsonArray,
+                phone: (phone || []) as Prisma.JsonArray,
+                paymentMethods: (paymentMethods || []) as Prisma.JsonArray,
             }
         });
         

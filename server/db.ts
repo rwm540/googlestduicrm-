@@ -1,7 +1,7 @@
-
 // FIX: Use namespace import for Prisma to resolve module export issues.
-import * as PrismaScope from '@prisma/client';
+// FIX: Changed to named import for PrismaClient for proper module resolution.
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaScope.PrismaClient();
+const prisma = new PrismaClient();
 
 export default prisma;

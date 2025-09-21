@@ -18,24 +18,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      // In a real-world application, this would be a single POST request to an /api/login endpoint.
-      // For this project's scope, we fetch all users and check credentials on the client-side.
-      // This is NOT secure and is for demonstration purposes only.
-      const response = await fetch('http://localhost:3001/api/users');
-      if (!response.ok) {
-        throw new Error('Failed to connect to the server.');
-      }
-      const users: User[] = await response.json();
+      const response = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
       
-      const user = users.find(
-        u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
-      );
+      const data = await response.json();
 
-      if (user) {
-        onLogin(user);
-      } else {
-        setErrors(['نام کاربری یا رمز عبور اشتباه است.']);
+      if (!response.ok) {
+        throw new Error(data.message || 'An unknown error occurred during login.');
       }
+      
+      // On success, the server returns the user object (without password)
+      onLogin(data);
+
     } catch(error: any) {
         setErrors([error.message || 'خطا در برقراری ارتباط با سرور.']);
     } finally {
@@ -69,7 +68,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 autoComplete="username"
                 required
                 className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-                placeholder="admin"
+                placeholder="PakzadEmr101"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -85,7 +84,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 autoComplete="current-password"
                 required
                 className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-                placeholder="admin"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

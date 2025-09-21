@@ -1,8 +1,9 @@
-
 // Fix: Replace CommonJS `require` with ES module `import` for `dotenv`.
 import 'dotenv/config';
 // FIX: import Request, Response, NextFunction to explicitly type middleware arguments.
-import express, { Request, Response, NextFunction } from 'express';
+// By letting TypeScript infer the types for req, res, and next, the global
+// type augmentation for Express.Request can be correctly applied, resolving the errors.
+import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -42,7 +43,8 @@ app.use(express.json());
 // FIX: Let TypeScript infer the types for req, res, and next. This allows the global
 // type augmentation for Express.Request to be correctly applied, resolving both errors.
 // FIX: Explicitly type middleware arguments to resolve overload ambiguity.
-app.use((req: Request, res: Response, next: NextFunction) => {
+// FIX: Removed explicit types for middleware arguments to allow type augmentation to apply correctly.
+app.use((req, res, next) => {
     req.io = io;
     next();
 });

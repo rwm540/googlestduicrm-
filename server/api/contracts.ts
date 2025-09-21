@@ -2,7 +2,8 @@
 import { Router } from 'express';
 import prisma from '../db';
 // FIX: Use namespace import for Prisma to resolve module export issues.
-import * as PrismaScope from '@prisma/client';
+// FIX: Changed to named import for Prisma types for proper module resolution.
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -65,7 +66,7 @@ router.post('/purchase', async (req, res) => {
         const newContract = await prisma.purchaseContract.create({
             data: {
                 ...rest,
-                paymentMethods: (paymentMethods || []) as PrismaScope.Prisma.JsonArray,
+                paymentMethods: (paymentMethods || []) as Prisma.JsonArray,
                 salesperson: await connectUser(salesperson),
                 crmResponsible: await connectUser(crmResponsible),
             },
@@ -88,7 +89,7 @@ router.put('/purchase/:id', async (req, res) => {
             where: { id: Number(id) },
             data: {
                 ...rest,
-                paymentMethods: (paymentMethods || []) as PrismaScope.Prisma.JsonArray,
+                paymentMethods: (paymentMethods || []) as Prisma.JsonArray,
                 salesperson: await connectUser(salesperson),
                 crmResponsible: await connectUser(crmResponsible),
             },
@@ -135,7 +136,7 @@ router.post('/support', async (req, res) => {
         const newContract = await prisma.supportContract.create({
             data: {
                 ...rest,
-                supportType: (supportType || []) as PrismaScope.Prisma.JsonArray,
+                supportType: (supportType || []) as Prisma.JsonArray,
                 customer: customerId ? { connect: { id: Number(customerId) } } : undefined,
             }
         });
@@ -154,7 +155,7 @@ router.put('/support/:id', async (req, res) => {
             where: { id: Number(id) },
             data: {
                 ...rest,
-                supportType: (supportType || []) as PrismaScope.Prisma.JsonArray,
+                supportType: (supportType || []) as Prisma.JsonArray,
                 customer: customerId ? { connect: { id: Number(customerId) } } : { disconnect: true },
             }
         });
