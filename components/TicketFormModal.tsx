@@ -150,7 +150,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   
   const searchableOptions = {
       titles: ticketTypeOptions.map(t => ({ value: t, label: t })),
-      customers: customers.map(c => ({ value: c.id, label: c.companyName })),
+      customers: customers.map(c => ({ value: c.id, label: `${c.companyName} (${c.firstName} ${c.lastName})` })),
       users: users.map(u => ({ value: u.username, label: `${u.firstName} ${u.lastName}` })),
       types: ticketTypeOptions.map(t => ({ value: t, label: t })),
   };

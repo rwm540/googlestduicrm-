@@ -90,6 +90,8 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   const sortedAndFilteredTickets = useMemo(() => {
     let sourceTickets: Ticket[];
 
+    // When showing completed, we want to show ALL completed tickets, including those that might have been referred and then completed.
+    // When showing active, we only want from the main 'tickets' list.
     if (showCompleted) {
         const allTicketsMap = new Map<number, Ticket>();
         tickets.forEach(ticket => allTicketsMap.set(ticket.id, ticket));
@@ -103,7 +105,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
     sourceTickets = sourceTickets.filter(ticket =>
       showCompleted 
         ? ticket.status === 'اتمام یافته' 
-        : (ticket.status !== 'اتمام یافته' && ticket.status !== 'ارجاع شده')
+        : ticket.status !== 'اتمام یافته' && ticket.status !== 'ارجاع شده'
     );
 
     // Filter by user access rights
@@ -132,6 +134,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
         return (
           ticket.title.toLowerCase().includes(search) ||
           ticket.ticketNumber.toLowerCase().includes(search) ||
+          (customer && `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(search)) ||
           (customer && customer.companyName.toLowerCase().includes(search))
         );
       });
