@@ -26,8 +26,10 @@ const ReferralHistoryTimeline: React.FC<ReferralHistoryTimelineProps> = ({ histo
     <div className="border rounded-md p-4 bg-gray-50 max-h-60 overflow-y-auto">
       <ol className="relative border-r border-gray-300">
         {history.map((item, index) => {
-          const referrer = getUser(item.referredBy);
-          const referee = getUser(item.referredTo);
+          // Fix: Corrected property access from `referredBy` to `referredByUsername`.
+          const referrer = getUser(item.referredByUsername);
+          // Fix: Corrected property access from `referredTo` to `referredToUsername`.
+          const referee = getUser(item.referredToUsername);
           return (
             <li key={item.id} className="mr-6 mb-6">
               <span className="absolute flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full -right-3 ring-8 ring-gray-50">
@@ -37,17 +39,21 @@ const ReferralHistoryTimeline: React.FC<ReferralHistoryTimelineProps> = ({ histo
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-4 text-sm font-normal text-gray-600">
                      <div className="flex items-center gap-2">
-                        <Avatar name={referrer ? `${referrer.firstName} ${referrer.lastName}` : item.referredBy} />
+                        {/* Fix: Corrected property access from `referredBy` to `referredByUsername`. */}
+                        <Avatar name={referrer ? `${referrer.firstName} ${referrer.lastName}` : item.referredByUsername} />
                         <div>
-                            <p className="font-semibold text-slate-800">{referrer ? `${referrer.firstName} ${referrer.lastName}` : item.referredBy}</p>
+                            {/* Fix: Corrected property access from `referredBy` to `referredByUsername`. */}
+                            <p className="font-semibold text-slate-800">{referrer ? `${referrer.firstName} ${referrer.lastName}` : item.referredByUsername}</p>
                             <p className="text-xs text-gray-400">ارجاع دهنده</p>
                         </div>
                      </div>
                      <ArrowLeftIcon />
                      <div className="flex items-center gap-2">
-                         <Avatar name={referee ? `${referee.firstName} ${referee.lastName}` : item.referredTo} />
+                         {/* Fix: Corrected property access from `referredTo` to `referredToUsername`. */}
+                         <Avatar name={referee ? `${referee.firstName} ${referee.lastName}` : item.referredToUsername} />
                         <div>
-                            <p className="font-semibold text-slate-800">{referee ? `${referee.firstName} ${referee.lastName}` : item.referredTo}</p>
+                            {/* Fix: Corrected property access from `referredTo` to `referredToUsername`. */}
+                            <p className="font-semibold text-slate-800">{referee ? `${referee.firstName} ${referee.lastName}` : item.referredToUsername}</p>
                             <p className="text-xs text-gray-400">ارجاع گیرنده</p>
                         </div>
                      </div>

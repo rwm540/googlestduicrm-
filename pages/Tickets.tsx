@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Ticket, Customer, User, Referral, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -21,12 +19,13 @@ interface TicketsProps {
   onSave: (ticket: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => void;
   onReferTicket: (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => void;
   onToggleWork: (ticketId: number) => void;
+  onDeleteTicket: (ticketId: number) => void;
   currentUser: User;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser, supportContracts }) => {
+const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser, supportContracts, onDeleteTicket }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -89,58 +88,73 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   };
 
   const sortedAndFilteredTickets = useMemo(() => {
-    let sourceTickets: Ticket[] = [];
+    let sourceTickets: Ticket[];
 
     if (showCompleted) {
-        const allCompletedTickets = [
-            ...tickets.filter(t => t.status === 'اتمام یافته'),
-            ...referrals.map(r => r.ticket).filter(t => t.status === 'اتمام یافته')
-        ];
-
-        if (currentUser.role === 'مدیر') {
-            sourceTickets = allCompletedTickets;
-        } else {
-            sourceTickets = allCompletedTickets.filter(t => t.assignedTo === currentUser.username);
-        }
+        const allTicketsMap = new Map<number, Ticket>();
+        tickets.forEach(ticket => allTicketsMap.set(ticket.id, ticket));
+        referrals.forEach(referral => allTicketsMap.set(referral.ticket.id, referral.ticket));
+        sourceTickets = Array.from(allTicketsMap.values());
     } else {
-        const activeTickets = tickets.filter(ticket => ticket.status !== 'ارجاع شده' && ticket.status !== 'اتمام یافته');
-        if (currentUser.role === 'مدیر') {
-            sourceTickets = activeTickets;
-        } else {
-            sourceTickets = activeTickets.filter(ticket => ticket.assignedTo === currentUser.username);
-        }
+        sourceTickets = [...tickets];
     }
-    
-    const uniqueTickets = Array.from(new Map(sourceTickets.map(ticket => [ticket.id, ticket])).values());
 
-    const scoredAndFilteredTickets = uniqueTickets
-        .filter(ticket => {
-            const search = searchTerm.toLowerCase();
-            if (!search) return true;
-            
-            const customer = customers.find(c => c.id === ticket.customerId);
-            return (
-                ticket.title.toLowerCase().includes(search) ||
-                ticket.ticketNumber.toLowerCase().includes(search) ||
-                (customer && customer.companyName.toLowerCase().includes(search))
-            );
-        })
-        .map(ticket => ({
-            ...ticket,
-            score: calculateTicketScore(ticket, customers, supportContracts),
-        }));
+    // Filter by status: show completed OR show active (not completed AND not referred)
+    sourceTickets = sourceTickets.filter(ticket =>
+      showCompleted 
+        ? ticket.status === 'اتمام یافته' 
+        : (ticket.status !== 'اتمام یافته' && ticket.status !== 'ارجاع شده')
+    );
 
-    scoredAndFilteredTickets.sort((a, b) => {
+    // Filter by user access rights
+    if (currentUser.role !== 'مدیر') {
+      if (currentUser.role.startsWith('مسئول')) { // Is a department lead
+        const department = currentUser.role.replace('مسئول ', '');
+        const specialistsInDept = users
+            .filter(user => user.role === `کارشناس ${department}`)
+            .map(user => user.username);
+        const departmentMembers = [currentUser.username, ...specialistsInDept];
+        
+        sourceTickets = sourceTickets.filter(ticket => 
+            ticket.assignedToUsername && departmentMembers.includes(ticket.assignedToUsername)
+        );
+
+      } else { // Is a specialist
+        sourceTickets = sourceTickets.filter(ticket => ticket.assignedToUsername === currentUser.username);
+      }
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      sourceTickets = sourceTickets.filter(ticket => {
+        const customer = customers.find(c => c.id === ticket.customerId);
+        return (
+          ticket.title.toLowerCase().includes(search) ||
+          ticket.ticketNumber.toLowerCase().includes(search) ||
+          (customer && customer.companyName.toLowerCase().includes(search))
+        );
+      });
+    }
+
+    // Score and sort the tickets
+    const scoredTickets = sourceTickets.map(ticket => ({
+        ...ticket,
+        score: calculateTicketScore(ticket, customers, supportContracts),
+    }));
+
+    scoredTickets.sort((a, b) => {
         if (a.score !== b.score) {
             return a.score - b.score;
         }
         const dateA = parseJalaaliDateTime(a.creationDateTime)?.getTime() || 0;
         const dateB = parseJalaaliDateTime(b.creationDateTime)?.getTime() || 0;
-        return dateB - dateA;
+        return dateB - dateA; // Sort by creation date descending as a tie-breaker
     });
 
-    return scoredAndFilteredTickets;
-  }, [tickets, referrals, searchTerm, customers, showCompleted, currentUser, supportContracts]);
+    return scoredTickets;
+  }, [tickets, referrals, searchTerm, customers, showCompleted, currentUser, supportContracts, users]);
+
 
   const totalPages = Math.ceil(sortedAndFilteredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = sortedAndFilteredTickets.slice(
@@ -244,6 +258,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
                 onToggleSelectAll={handleToggleSelectAll}
+                onDelete={onDeleteTicket}
                 currentUser={currentUser}
               />
               <Pagination 

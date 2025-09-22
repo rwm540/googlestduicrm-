@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo } from 'react';
 import { User, Referral, Customer, Ticket, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -75,11 +76,38 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
     setSearchTerm(e.target.value);
     setCurrentPage(1);
   };
+  
+  const latestReferrals = useMemo(() => {
+      const referralsByTicketId = new Map<number, Referral>();
+      for (const referral of referrals) {
+          const existing = referralsByTicketId.get(referral.ticket.id);
+          if (!existing || new Date(referral.referralDate) > new Date(existing.referralDate)) {
+              referralsByTicketId.set(referral.ticket.id, referral);
+          }
+      }
+      return Array.from(referralsByTicketId.values());
+  }, [referrals]);
+
 
   const referredTickets = useMemo(() => {
-    const isSuperAdmin = currentUser.role === 'مدیر' && currentUser.accessibleMenus.includes('users');
-    let filteredReferrals = (isSuperAdmin ? referrals : referrals.filter(r => r.referredTo === currentUser.username))
-      .filter(r => r.ticket.status !== 'اتمام یافته');
+    let filteredReferrals;
+
+    if (currentUser.role === 'مدیر') {
+        filteredReferrals = latestReferrals;
+    } else if (currentUser.role.startsWith('مسئول')) { // Is a department lead
+        const department = currentUser.role.replace('مسئول ', '');
+        const specialistsInDept = users
+            .filter(user => user.role === `کارشناس ${department}`)
+            .map(user => user.username);
+        const departmentMembers = [currentUser.username, ...specialistsInDept];
+        // Fix: Corrected property access from `referredTo` to `referredToUsername`.
+        filteredReferrals = latestReferrals.filter(r => departmentMembers.includes(r.referredToUsername));
+    } else { // Is a specialist
+        // Fix: Corrected property access from `referredTo` to `referredToUsername`.
+        filteredReferrals = latestReferrals.filter(r => r.referredToUsername === currentUser.username);
+    }
+    
+    filteredReferrals = filteredReferrals.filter(r => r.ticket.status !== 'اتمام یافته');
 
     if (searchTerm) {
         const search = searchTerm.toLowerCase();
@@ -110,7 +138,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
         ...item.referral.ticket,
         score: item.score
     }));
-  }, [referrals, currentUser, customers, supportContracts, searchTerm]);
+  }, [latestReferrals, currentUser, customers, supportContracts, searchTerm, users]);
 
   const totalPages = Math.ceil(referredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = referredTickets.slice(

@@ -44,7 +44,7 @@ const CustomerTable: React.FC<CustomerTableProps> = ({ customers, onEdit, onDele
       {/* Mobile & Tablet Card View (for screens smaller than lg) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {customers.map(customer => (
-          <div key={customer.id} className="bg-white p-4 space-y-3 relative">
+          <div key={customer.id} className="bg-white p-4 space-y-4 relative">
             <div className="absolute top-4 left-4 z-10">
               <input 
                 type="checkbox"
@@ -58,7 +58,7 @@ const CustomerTable: React.FC<CustomerTableProps> = ({ customers, onEdit, onDele
                 <div className="flex items-center gap-4">
                     <Avatar name={`${customer.firstName} ${customer.lastName}`} />
                     <div>
-                        <p className="font-bold text-slate-800">{customer.firstName} {customer.lastName}</p>
+                        <p className="text-lg font-bold text-slate-800">{customer.firstName} {customer.lastName}</p>
                         <p className="text-sm text-gray-500">{customer.companyName}</p>
                     </div>
                 </div>
@@ -66,10 +66,10 @@ const CustomerTable: React.FC<CustomerTableProps> = ({ customers, onEdit, onDele
                     {customer.level}
                 </span>
             </div>
-            <div className="text-sm text-gray-500 space-y-1 pt-2 border-t border-gray-100">
-              <p>موبایل: {toPersianDigits(customer.mobileNumbers[0] || 'N/A')}</p>
-              <p>کد ملی: {toPersianDigits(customer.nationalId)}</p>
-              <p>پایان پشتیبانی: {toPersianDigits(customer.supportEndDate)}</p>
+            <div className="text-sm text-gray-600 space-y-2 pt-3 border-t border-gray-100">
+              <p><span className="font-semibold">موبایل:</span> {toPersianDigits(customer.mobileNumbers[0] || 'ثبت نشده')}</p>
+              <p><span className="font-semibold">کد ملی:</span> {toPersianDigits(customer.nationalId)}</p>
+              <p><span className="font-semibold">پایان پشتیبانی:</span> <span className="font-mono">{toPersianDigits(customer.supportEndDate)}</span></p>
             </div>
             <div className="flex items-center justify-end pt-2">
                 <div className="flex items-center gap-2">

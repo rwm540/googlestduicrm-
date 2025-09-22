@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Ticket, User, UserRole } from '../types';
 import { toPersianDigits, formatSecondsToTime } from '../utils/dateFormatter';
@@ -9,12 +7,14 @@ import { PlayIcon } from './icons/PlayIcon';
 import { StopIcon } from './icons/StopIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import ConfirmationModal from './ConfirmationModal';
+import { TrashIcon } from './icons/TrashIcon';
 
 interface TicketActionsProps {
   ticket: Ticket;
   onEdit: (ticket: Ticket) => void;
   onRefer: (ticket: Ticket) => void;
   onToggleWork: (ticketId: number) => void;
+  onDelete?: (ticketId: number) => void;
   currentUser: User;
 }
 
@@ -64,10 +64,11 @@ const EditCountdown: React.FC<{ editableUntil: string }> = ({ editableUntil }) =
 };
 
 
-const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, onToggleWork, currentUser }) => {
+const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, onToggleWork, currentUser, onDelete }) => {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isStillEditable, setIsStillEditable] = useState(new Date().getTime() < new Date(ticket.editableUntil).getTime());
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     const isRunning = ticket.status === 'در حال پیگیری';
     
@@ -121,42 +122,52 @@ const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, 
         setIsConfirmModalOpen(false);
     };
 
-    if (ticket.status === 'اتمام یافته' || ticket.status === 'ارجاع شده') {
-        return (
-            <div className="flex items-center justify-end gap-2 text-sm text-gray-500" title="زمان کل صرف شده">
-                <ClockIcon className="h-4 w-4" />
-                <span className="font-mono">{toPersianDigits(formatSecondsToTime(ticket.totalWorkDuration))}</span>
-            </div>
-        );
-    }
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsDeleteConfirmOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (onDelete) {
+            onDelete(ticket.id);
+        }
+        setIsDeleteConfirmOpen(false);
+    };
+
+    const stopWorkMessage = "با توقف کار، این تیکت به وضعیت 'اتمام یافته' تغییر کرده و به لیست کارهای تکمیل شده منتقل می‌شود. آیا اطمینان دارید؟";
+    const startWorkMessage = "آیا از شروع کار روی این تیکت اطمینان دارید؟";
 
     return (
         <>
             <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                <button
-                    onClick={handleToggleWorkClick}
-                    className={`p-2 rounded-full transition-colors ${isRunning ? 'text-yellow-600 hover:bg-yellow-100' : 'text-green-600 hover:bg-green-100'}`}
-                    title={isRunning ? 'توقف کار' : 'شروع کار'}
-                >
-                    {isRunning ? <StopIcon /> : <PlayIcon />}
-                </button>
                 
-                <div className="text-sm text-gray-500 p-2 font-mono" title="زمان کل / زمان این جلسه">
+                {ticket.status !== 'اتمام یافته' && (
+                    <>
+                        <button
+                            onClick={handleToggleWorkClick}
+                            className={`p-2 rounded-full transition-colors ${isRunning ? 'text-yellow-600 hover:bg-yellow-100' : 'text-green-600 hover:bg-green-100'}`}
+                            title={isRunning ? 'توقف کار' : 'شروع کار'}
+                        >
+                            {isRunning ? <StopIcon /> : <PlayIcon />}
+                        </button>
+
+                        <button
+                            onClick={(e) => handleActionClick(e, () => onRefer(ticket))}
+                            className="p-2 text-blue-500 rounded-full transition-colors hover:text-blue-600 hover:bg-blue-100"
+                            title="ارجاع به کاربر دیگر"
+                        >
+                            <UserCheckIcon />
+                        </button>
+                    </>
+                )}
+                
+                 <div className="text-sm text-gray-500 p-2 font-mono" title="زمان کل / زمان این جلسه">
                     {toPersianDigits(formatSecondsToTime(totalDuration))}
                     {isRunning && <span className="text-xs opacity-70"> ({toPersianDigits(formatSecondsToTime(elapsedTime))})</span>}
                 </div>
                 
-                {!isSpecialist(currentUser.role) && (
-                    <button
-                        onClick={(e) => handleActionClick(e, () => onRefer(ticket))}
-                        className="p-2 text-blue-500 rounded-full transition-colors hover:text-blue-600 hover:bg-blue-100"
-                        title="ارجاع به کاربر دیگر"
-                    >
-                        <UserCheckIcon />
-                    </button>
-                )}
 
-                {isStillEditable ? (
+                {isStillEditable && ticket.status !== 'اتمام یافته' ? (
                     <>
                         <button
                             onClick={(e) => handleActionClick(e, () => onEdit(ticket))}
@@ -168,19 +179,40 @@ const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, 
                         <EditCountdown editableUntil={ticket.editableUntil} />
                     </>
                 ) : (
-                    <div className="p-2 text-gray-300 cursor-not-allowed" title="زمان ویرایش به پایان رسیده است">
+                    <div className="p-2 text-gray-300 cursor-not-allowed" title="زمان ویرایش به پایان رسیده یا تیکت اتمام یافته است">
                         <EditIcon />
                     </div>
                 )}
+                
+                 {currentUser.role === 'مدیر' && onDelete && (
+                    <button
+                        onClick={handleDeleteClick}
+                        className="p-2 text-red-500 rounded-full transition-colors hover:text-red-600 hover:bg-red-100"
+                        title="حذف تیکت"
+                    >
+                        <TrashIcon />
+                    </button>
+                )}
             </div>
+            
             <ConfirmationModal
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
                 onConfirm={confirmToggleWork}
-                title={isRunning ? 'توقف کار' : 'شروع کار'}
-                message={`آیا از ${isRunning ? 'توقف' : 'شروع'} کار روی این تیکت اطمینان دارید؟`}
-                confirmText={isRunning ? 'توقف کن' : 'شروع کن'}
+                title={isRunning ? 'توقف و اتمام کار' : 'شروع کار'}
+                message={isRunning ? stopWorkMessage : startWorkMessage}
+                confirmText={isRunning ? 'بله، اتمام کار' : 'شروع کن'}
                 confirmButtonColor={isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+            />
+            
+            <ConfirmationModal
+                isOpen={isDeleteConfirmOpen}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                onConfirm={confirmDelete}
+                title="حذف تیکت"
+                message={`آیا از حذف تیکت "${ticket.title}" اطمینان دارید؟ این عمل قابل بازگشت نیست.`}
+                confirmText="بله، حذف کن"
+                confirmButtonColor="bg-red-600 hover:bg-red-700"
             />
         </>
     );

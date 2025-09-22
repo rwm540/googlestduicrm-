@@ -201,7 +201,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                     {/* Section 1: General & Contact */}
                     <div>
                         <h4 className="text-md font-semibold text-slate-700 border-b pb-2 mb-4">اطلاعات عمومی و تماس</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                             <FormField label="نام" id="firstName">
                                 <input type="text" name="firstName" id="firstName" value={formData.firstName} onChange={handleChange} className={inputClass} />
                             </FormField>
@@ -275,7 +275,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                      {/* Section 2: Job & Financial */}
                     <div>
                         <h4 className="text-md font-semibold text-slate-700 border-b pb-2 mb-4">اطلاعات شغلی و مالی</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                            <FormField label="نام شرکت" id="companyName">
                                 <input type="text" name="companyName" id="companyName" value={formData.companyName} onChange={handleChange} className={inputClass} />
                             </FormField>
@@ -322,7 +322,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                     {/* Section 3: Purchase & Support */}
                     <div>
                         <h4 className="text-md font-semibold text-slate-700 border-b pb-2 mb-4">اطلاعات خرید و پشتیبانی</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                              <FormField label="نوع نرم‌افزار" id="softwareType">
                                 <select name="softwareType" id="softwareType" value={formData.softwareType} onChange={handleChange} className={inputClass}>
                                     {softwareTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}

@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
-import { PurchaseContract, User, Customer, ContractType, ContractStatus, CustomerType, NetworkSupport, PaymentMethod, PaymentStatus } from '../types';
+import { PurchaseContract, User, Customer, ContractType, ContractStatus, NetworkSupport, PaymentMethod, PaymentStatus } from '../types';
 import Modal from './Modal';
 import DatePicker from './DatePicker';
 import { FileUploadIcon } from './icons/FileUploadIcon';
 import Alert from './Alert';
 import { getPurchaseContractStatusByDate, formatCurrency, convertPersianToEnglish } from '../utils/dateFormatter';
+import SearchableSelect from './SearchableSelect';
 
 declare const jalaali: any;
 
@@ -17,9 +17,10 @@ interface PurchaseContractFormModalProps {
   users: User[];
   contracts: PurchaseContract[];
   customers: Customer[];
+  currentUser: User;
 }
 
-const getInitialState = (): Omit<PurchaseContract, 'id'> => {
+const getInitialState = (currentUser: User): Omit<PurchaseContract, 'id'> => {
   const today = new Date();
   const jalaaliDate = jalaali.toJalaali(today);
   const formattedDate = `${jalaaliDate.jy}/${String(jalaaliDate.jm).padStart(2, '0')}/${String(jalaaliDate.jd).padStart(2, '0')}`;
@@ -38,14 +39,13 @@ const getInitialState = (): Omit<PurchaseContract, 'id'> => {
     contractType: "خرید دائم",
     contractStatus: "در انتظار تایید",
     softwareVersion: "",
-    customerType: "سازمانی",
-    customerName: "",
+    customerId: null,
     economicCode: "",
     customerAddress: "",
     customerContact: "",
     customerRepresentative: "",
     vendorName: "شرکت شما",
-    salesperson: "",
+    salespersonUsername: currentUser.username,
     softwareName: "",
     licenseCount: 1,
     softwareDescription: "",
@@ -74,7 +74,7 @@ const getInitialState = (): Omit<PurchaseContract, 'id'> => {
     nonCompeteClause: "",
     disputeResolution: "",
     lastStatusChangeDate: formattedDate,
-    crmResponsible: "",
+    crmResponsibleUsername: currentUser.username,
     notes: "",
     futureTasks: "",
   };
@@ -120,44 +120,55 @@ const FileInput: React.FC<{ label: string; fileName: string; onFileChange: (e: R
 );
 
 
-const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ isOpen, onClose, onSave, contract, users, contracts, customers }) => {
+const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ isOpen, onClose, onSave, contract, users, contracts, customers, currentUser }) => {
   const [activeTab, setActiveTab] = useState(0);
-  const [formData, setFormData] = useState<Omit<PurchaseContract, 'id'>>(getInitialState());
+  const [formData, setFormData] = useState<Omit<PurchaseContract, 'id'>>(() => getInitialState(currentUser));
   const [errors, setErrors] = useState<string[]>([]);
   const [formattedTotalAmount, setFormattedTotalAmount] = useState('');
   const [formattedPrepayment, setFormattedPrepayment] = useState('');
-  // FIX: Corrected filter condition to find users with sales-related roles.
-  const salesUsers = users.filter(user => user.role.includes('فروش'));
+  const [customerName, setCustomerName] = useState('');
+  const salesUsers = users.filter(user => user.role.includes('فروش') || user.role.includes('مدیر'));
 
   useEffect(() => {
     if (isOpen) {
-        const initialState = contract ? contract : getInitialState();
+        const initialState = contract ? contract : getInitialState(currentUser);
         setFormData(initialState);
         setFormattedTotalAmount(formatCurrency(initialState.totalAmount));
         setFormattedPrepayment(formatCurrency(initialState.prepayment));
+        if (initialState.customerId) {
+            const customer = customers.find(c => c.id === initialState.customerId);
+            setCustomerName(customer ? customer.companyName : '');
+        } else {
+            setCustomerName('');
+        }
     } else {
         setTimeout(() => {
-            const initial = getInitialState();
+            const initial = getInitialState(currentUser);
             setFormData(initial);
             setFormattedTotalAmount(formatCurrency(initial.totalAmount));
             setFormattedPrepayment(formatCurrency(initial.prepayment));
+            setCustomerName('');
             setActiveTab(0);
             setErrors([]);
         }, 300);
     }
-  }, [contract, isOpen]);
+  }, [contract, isOpen, customers, currentUser]);
   
-  const handleCustomerSelect = (customerId: number) => {
-    const customer = customers.find(c => c.id === customerId);
+  const handleCustomerSelect = (customerId: number | string) => {
+    const customer = customers.find(c => c.id === Number(customerId));
     if (customer) {
         setFormData(prev => ({
             ...prev,
-            customerName: customer.companyName,
+            customerId: customer.id,
             economicCode: customer.taxCode,
             customerAddress: customer.address,
             customerContact: customer.mobileNumbers[0] || customer.phone[0] || '',
             customerRepresentative: `${customer.firstName} ${customer.lastName}`
         }));
+        setCustomerName(customer.companyName);
+    } else {
+        setFormData(prev => ({ ...prev, customerId: null }));
+        setCustomerName('');
     }
   };
   
@@ -211,6 +222,9 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
     if (!formData.contractId.trim()) {
         validationErrors.push('شناسه قرارداد نمی‌تواند خالی باشد.');
     }
+    if (!formData.customerId) {
+        validationErrors.push('انتخاب مشتری الزامی است.');
+    }
     
     const isContractIdTaken = contracts.some(
         c => c.contractId.toLowerCase() === formData.contractId.toLowerCase() && c.id !== contract?.id
@@ -236,7 +250,7 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
   const renderTabContent = () => {
     switch(activeTab) {
         case 0: return ( // مشخصات
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                 <FormField label="شناسه قرارداد"><input type="text" name="contractId" value={formData.contractId} onChange={handleChange} className={inputClass} /></FormField>
                 <FormField label="نوع قرارداد">
                     <select name="contractType" value={formData.contractType} onChange={handleChange} className={inputClass}>
@@ -258,29 +272,22 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
             </div>
         );
         case 1: return ( // طرفین
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                 <div className="sm:col-span-2 lg:col-span-3">
-                    <FormField label="انتخاب مشتری (برای تکمیل خودکار)">
-                        <select
-                            onChange={(e) => handleCustomerSelect(Number(e.target.value))}
-                            className={inputClass}
-                            defaultValue=""
-                        >
-                            <option value="">انتخاب کنید...</option>
-                            {customers.map(c => (
-                                <option key={c.id} value={c.id}>
-                                    {c.companyName} ({c.firstName} {c.lastName})
-                                </option>
-                            ))}
-                        </select>
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
+                 <div className="lg:col-span-1">
+                    <FormField label="انتخاب مشتری">
+                        <SearchableSelect
+                            options={customers.map(c => ({ value: c.id, label: `${c.companyName} (${c.firstName} ${c.lastName})`}))}
+                            value={formData.customerId}
+                            onChange={handleCustomerSelect}
+                            placeholder="جستجوی مشتری..."
+                        />
                     </FormField>
                 </div>
-                <FormField label="نوع مشتری">
-                    <select name="customerType" value={formData.customerType} onChange={handleChange} className={inputClass}>
-                         {(['شخصی', 'سازمانی'] as CustomerType[]).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </FormField>
-                <FormField label="نام مشتری"><input type="text" name="customerName" value={formData.customerName} onChange={handleChange} className={inputClass} /></FormField>
+                 <div className="lg:col-span-2">
+                    <FormField label="نام مشتری (شرکت)">
+                        <input type="text" value={customerName} readOnly className={`${inputClass} bg-slate-200`} />
+                    </FormField>
+                 </div>
                 <FormField label="کد اقتصادی"><input type="text" name="economicCode" value={formData.economicCode} onChange={handleChange} className={inputClass} /></FormField>
                 <FormField label="شماره تماس و ایمیل"><input type="text" name="customerContact" value={formData.customerContact} onChange={handleChange} className={inputClass} /></FormField>
                 <FormField label="نماینده مشتری"><input type="text" name="customerRepresentative" value={formData.customerRepresentative} onChange={handleChange} className={inputClass} /></FormField>
@@ -289,15 +296,17 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
                 </div>
                 <FormField label="فروشنده / تامین کننده"><input type="text" name="vendorName" value={formData.vendorName} onChange={handleChange} className={inputClass} /></FormField>
                 <FormField label="مسئول فروش">
-                     <select name="salesperson" value={formData.salesperson} onChange={handleChange} className={inputClass}>
-                        <option value="">انتخاب کنید...</option>
-                        {salesUsers.map(user => <option key={user.id} value={user.username}>{user.firstName} {user.lastName}</option>)}
-                     </select>
+                    <SearchableSelect
+                        options={salesUsers.map(u => ({ value: u.username, label: `${u.firstName} ${u.lastName}` }))}
+                        value={formData.salespersonUsername}
+                        onChange={value => setFormData(f => ({ ...f, salespersonUsername: String(value) }))}
+                        placeholder="جستجوی کاربر فروش..."
+                    />
                 </FormField>
              </div>
         );
         case 2: return ( // فنی
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
                 <FormField label="نام نرم افزار"><input type="text" name="softwareName" value={formData.softwareName} onChange={handleChange} className={inputClass} /></FormField>
                 <FormField label="تعداد کاربر / لایسنس"><input type="number" name="licenseCount" value={formData.licenseCount} onChange={handleChange} className={inputClass} /></FormField>
                 <div className="sm:col-span-2"><FormField label="توضیحات نرم افزار"><textarea name="softwareDescription" value={formData.softwareDescription} onChange={handleChange} className={textareaClass}></textarea></FormField></div>
@@ -311,7 +320,7 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
             </div>
         );
         case 3: return ( // خدمات
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
                 <FormField label="آموزش اولیه"><textarea name="initialTraining" value={formData.initialTraining} onChange={handleChange} className={textareaClass}></textarea></FormField>
                 <FormField label="نصب و راه اندازی اولیه"><textarea name="setupAndInstallation" value={formData.setupAndInstallation} onChange={handleChange} className={textareaClass}></textarea></FormField>
                 <FormField label="پشتیبانی فنی"><textarea name="technicalSupport" value={formData.technicalSupport} onChange={handleChange} className={textareaClass}></textarea></FormField>
@@ -320,7 +329,7 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
             </div>
         );
         case 4: return ( // مالی
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                 <FormField label="مبلغ کل قرارداد (ریال)">
                   <input 
                       type="text" 
@@ -368,7 +377,7 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
             </div>
         );
         case 6: return ( // حقوقی
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
                 <FormField label="شرایط فسخ قرارداد"><textarea name="terminationConditions" value={formData.terminationConditions} onChange={handleChange} className={textareaClass}></textarea></FormField>
                 <FormField label="شرایط گارانتی نرم افزار"><textarea name="warrantyConditions" value={formData.warrantyConditions} onChange={handleChange} className={textareaClass}></textarea></FormField>
                 <FormField label="حقوق مالکیت نرم افزار"><textarea name="ownershipRights" value={formData.ownershipRights} onChange={handleChange} className={textareaClass}></textarea></FormField>
@@ -378,13 +387,15 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
             </div>
         );
         case 7: return ( // CRM
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
                 <FormField label="تاریخ آخرین تغییر وضعیت"><DatePicker value={formData.lastStatusChangeDate} onChange={d => handleDateChange('lastStatusChangeDate', d)} /></FormField>
                  <FormField label="مسئول پیگیری قرارداد">
-                     <select name="crmResponsible" value={formData.crmResponsible} onChange={handleChange} className={inputClass}>
-                        <option value="">انتخاب کنید...</option>
-                        {users.map(user => <option key={user.id} value={user.username}>{user.firstName} {user.lastName}</option>)}
-                     </select>
+                     <SearchableSelect
+                        options={users.map(u => ({ value: u.username, label: `${u.firstName} ${u.lastName}` }))}
+                        value={formData.crmResponsibleUsername}
+                        onChange={value => setFormData(f => ({ ...f, crmResponsibleUsername: String(value) }))}
+                        placeholder="جستجوی کاربر..."
+                    />
                 </FormField>
                 <div className="sm:col-span-2"><FormField label="یادداشت و مکاتبات مرتبط"><textarea name="notes" value={formData.notes} onChange={handleChange} className={textareaClass}></textarea></FormField></div>
                 <div className="sm:col-span-2"><FormField label="وظایف آتی و یادآورها"><textarea name="futureTasks" value={formData.futureTasks} onChange={handleChange} className={textareaClass}></textarea></FormField></div>
@@ -396,27 +407,29 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="5xl">
-      <div className="p-6 flex flex-col">
+      <div className="p-6 flex flex-col h-[90vh]">
         <h3 className="text-xl font-medium leading-6 text-cyan-600 mb-4">
           {contract ? 'ویرایش قرارداد فروش' : 'افزودن قرارداد فروش'}
         </h3>
         
         <div className="border-b border-gray-200 mb-4">
-            <nav className="flex flex-wrap -mb-px space-x-4 space-x-reverse" aria-label="Tabs">
-                {tabs.map((tab, index) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(index)}
-                        className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                            activeTab === index 
-                            ? 'border-cyan-500 text-cyan-600' 
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        }`}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </nav>
+            <div className="overflow-x-auto no-scrollbar">
+                <nav className="flex -mb-px space-x-4 space-x-reverse" aria-label="Tabs">
+                    {tabs.map((tab, index) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(index)}
+                            className={`whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors ${
+                                activeTab === index 
+                                ? 'border-cyan-500 text-cyan-600' 
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </nav>
+            </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-grow overflow-hidden flex flex-col">

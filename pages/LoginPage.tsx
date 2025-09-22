@@ -3,7 +3,7 @@ import { User } from '../types';
 import Alert from '../components/Alert';
 
 interface LoginPageProps {
-  onLogin: (user: User) => void;
+  onLogin: (username: string, password: string) => Promise<boolean>;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
@@ -17,29 +17,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setErrors([]);
     setLoading(true);
 
-    try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-      
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'An unknown error occurred during login.');
-      }
-      
-      // On success, the server returns the user object (without password)
-      onLogin(data);
-
-    } catch(error: any) {
-        setErrors([error.message || 'خطا در برقراری ارتباط با سرور.']);
-    } finally {
-        setLoading(false);
+    const success = await onLogin(username, password);
+    
+    if (!success) {
+        setErrors(['نام کاربری یا رمز عبور اشتباه است.']);
     }
+    // On successful login, the App.tsx component will handle setting the current user
+    // and re-rendering the application to show the dashboard.
+
+    setLoading(false);
   };
 
   return (
@@ -68,7 +54,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 autoComplete="username"
                 required
                 className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-                placeholder="PakzadEmr101"
+                placeholder="نام کاربری خود را وارد کنید"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />

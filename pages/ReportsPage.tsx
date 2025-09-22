@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Customer, PurchaseContract, SupportContract, Ticket, User, TicketStatus, TicketPriority, ContractStatus, CustomerStatus } from '../types';
 import DatePicker from '../components/DatePicker';
@@ -42,7 +43,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
         let columns: string[] = [];
 
         const allContracts = [
-            ...purchaseContracts.map(c => ({ ...c, type: 'خرید' })),
+            // Fix: Added customerName to purchase contracts to ensure consistent object shape.
+            ...purchaseContracts.map(c => ({ ...c, type: 'خرید', customerName: customers.find(cust => cust.id === c.customerId)?.companyName || 'N/A' })),
             ...supportContracts.map(c => ({ ...c, type: 'پشتیبانی', contractId: `SC-${c.id}`, customerName: customers.find(cust => cust.id === c.customerId)?.companyName || 'N/A', totalAmount: 0, contractStatus: c.status, contractDate: c.startDate }))
         ];
 
@@ -92,7 +94,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
                     if (!checkDateRange(t.creationDateTime)) return false;
                     if (filters.status !== 'all' && t.status !== filters.status) return false;
                     if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
-                    if (filters.assignedTo !== 'all' && t.assignedTo !== filters.assignedTo) return false;
+                    if (filters.assignedTo !== 'all' && t.assignedToUsername !== filters.assignedTo) return false;
                     return true;
                 }).map(t => ({
                     id: t.ticketNumber,
@@ -100,7 +102,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
                     customer: customers.find(c => c.id === t.customerId)?.companyName || 'N/A',
                     status: t.status,
                     priority: t.priority,
-                    assignee: users.find(u => u.username === t.assignedTo)?.firstName || t.assignedTo || 'N/A'
+                    assignee: users.find(u => u.username === t.assignedToUsername)?.firstName || t.assignedToUsername || 'N/A'
                 }));
                 break;
         }

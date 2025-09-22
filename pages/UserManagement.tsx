@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import UserTable from '../components/UserTable';
@@ -6,6 +8,7 @@ import { PlusIcon } from '../components/icons/PlusIcon';
 import Pagination from '../components/Pagination';
 import { toPersianDigits } from '../utils/dateFormatter';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface UserManagementProps {
   users: User[];
@@ -23,6 +26,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  
+  // State for confirmation modal
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [itemsToDelete, setItemsToDelete] = useState<number[] | null>(null);
 
   const handleOpenModal = (user: User | null = null) => {
     setEditingUser(user);
@@ -39,22 +46,41 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
     handleCloseModal();
   };
   
-  const filteredUsers = users.filter(user => 
-    `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleCloseConfirmation = () => {
+    setItemToDelete(null);
+    setItemsToDelete(null);
+  };
+  
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      onDelete(itemToDelete);
+    } else if (itemsToDelete) {
+      onDeleteMany(itemsToDelete);
+      setSelectedIds([]);
+    }
+    handleCloseConfirmation();
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
   };
 
+  const filteredUsers = users.filter(user => {
+    const search = searchTerm.toLowerCase();
+    return (
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(search) ||
+        user.username.toLowerCase().includes(search) ||
+        user.role.toLowerCase().includes(search)
+    )
+  });
+
   const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
-
+  
   const handleToggleSelect = (id: number) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -72,13 +98,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
     }
   };
 
-  const handleDeleteSelected = () => {
-    if (window.confirm(`آیا از حذف ${toPersianDigits(selectedIds.length)} کاربر انتخاب شده اطمینان دارید؟`)) {
-      onDeleteMany(selectedIds);
-      setSelectedIds([]);
-    }
-  };
-
   const allOnPageSelected = paginatedUsers.length > 0 && paginatedUsers.every(u => selectedIds.includes(u.id));
 
   return (
@@ -87,8 +106,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">مدیریت کاربران CRM</h1>
-            <p className="text-gray-500 mt-1">کاربران سیستم CRM خود را ایجاد و مدیریت کنید.</p>
+            <h1 className="text-3xl font-bold text-slate-800">مدیریت کاربران</h1>
+            <p className="text-gray-500 mt-1">کاربران سیستم را در این بخش مدیریت کنید.</p>
           </div>
           <button
             onClick={() => handleOpenModal()}
@@ -109,9 +128,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
                     onChange={handleSearchChange}
                     className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                 />
-                {currentUser.role === 'مدیر' && selectedIds.length > 0 && (
+                 {currentUser.role === 'مدیر' && selectedIds.length > 0 && (
                   <button
-                    onClick={handleDeleteSelected}
+                    onClick={() => setItemsToDelete(selectedIds)}
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-sm whitespace-nowrap"
                   >
                     <TrashIcon />
@@ -132,7 +151,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
             <UserTable 
               users={paginatedUsers} 
               onEdit={handleOpenModal} 
-              onDelete={onDelete} 
+              onDelete={(userId) => setItemToDelete(userId)}
               selectedIds={selectedIds}
               onToggleSelect={handleToggleSelect}
               onToggleSelectAll={handleToggleSelectAll}
@@ -154,6 +173,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
           onSave={handleSaveUser}
           user={editingUser}
           users={users}
+        />
+        
+        <ConfirmationModal
+          isOpen={!!itemToDelete || !!itemsToDelete}
+          onClose={handleCloseConfirmation}
+          onConfirm={handleConfirmDelete}
+          title="تایید حذف"
+          message={itemToDelete ? `آیا از حذف این کاربر اطمینان دارید؟` : `آیا از حذف ${toPersianDigits(itemsToDelete?.length || 0)} کاربر انتخاب شده اطمینان دارید؟`}
         />
       </main>
     </div>

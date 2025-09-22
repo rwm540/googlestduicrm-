@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>داشبورد مدیریت</title>
+    <meta name="theme-color" content="#0891b2">
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- jalaali-js for date calculations -->
@@ -46,6 +47,34 @@
       .animate-scale-up {
         animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
+      /* Utility for hiding scrollbar */
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+      .no-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+      }
+      /* New loader styles */
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 5px dotted #FFF;
+        border-radius: 50%;
+        display: inline-block;
+        position: relative;
+        box-sizing: border-box;
+        animation: rotation 2s linear infinite;
+      }
+
+      @keyframes rotation {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      } 
     </style>
     <script type="importmap">
 {
@@ -54,17 +83,8 @@
     "react/": "https://aistudiocdn.com/react@18.3.1/",
     "react": "https://aistudiocdn.com/react@18.3.1",
     "@google/genai": "https://esm.run/@google/genai",
-    "socket.io-client": "https://cdn.socket.io/4.7.5/socket.io.esm.min.js",
-    "http": "https://aistudiocdn.com/http@^0.0.1-security",
-    "express": "https://aistudiocdn.com/express@^5.1.0",
-    "cors": "https://aistudiocdn.com/cors@^2.8.5",
-    "knex": "https://aistudiocdn.com/knex@^3.1.0",
-    "socket.io": "https://aistudiocdn.com/socket.io@^4.8.1",
-    "express-serve-static-core": "https://aistudiocdn.com/express-serve-static-core@^0.1.1",
     "process": "https://aistudiocdn.com/process@^0.11.10",
-    "dotenv/": "https://aistudiocdn.com/dotenv@^17.2.2/",
-    "@prisma/client": "https://aistudiocdn.com/@prisma/client@^6.16.2",
-    "bcrypt": "https://aistudiocdn.com/bcrypt@^6.0.0"
+    "axios": "https://esm.run/axios"
   }
 }
 </script>

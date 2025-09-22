@@ -1,218 +1,408 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import io from 'socket.io-client';
+import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, AttendanceRecord, LeaveRequest, Mission, AttendanceType, LeaveRequestStatus } from './types';
+import api from './src/api';
+
+// Components and Pages
 import Sidebar from './components/Sidebar';
+import Header from './components/Header';
+import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import UserManagement from './pages/UserManagement';
 import CustomerList from './pages/CustomerList';
+import Tickets from './pages/Tickets';
+import ReferralsPage from './pages/ReferralsPage';
+import ReportsPage from './pages/ReportsPage';
 import PurchaseContracts from './pages/PurchaseContracts';
 import SupportContracts from './pages/SupportContracts';
-import Tickets from './pages/Tickets';
-import ReportsPage from './pages/ReportsPage';
-import LoginPage from './pages/LoginPage';
-import PlaceholderPage from './pages/PlaceholderPage';
-import ReferralsPage from './pages/ReferralsPage';
+import AttendancePage from './pages/AttendancePage';
+import LeavePage from './pages/LeavePage';
+import MissionsPage from './pages/MissionsPage';
+import ProcessingOverlay from './components/ProcessingOverlay';
+import { formatJalaaliDateTime } from './utils/dateFormatter';
 
-import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral } from './types';
-import { MenuIcon } from './components/icons/MenuIcon';
+// Helper functions for key conversion
+const convertKeysToCamelCase = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(v => convertKeysToCamelCase(v));
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const camelKey = key.replace(/_([a-z])/g, g => g[1].toUpperCase());
+      acc[camelKey] = convertKeysToCamelCase(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+};
 
-// Declare globals loaded from CDN
-declare const jalaali: any;
+const convertKeysToSnakeCase = (obj: any): any => {
+    if (Array.isArray(obj)) {
+        return obj.map(v => convertKeysToSnakeCase(v));
+    } else if (obj !== null && typeof obj === 'object') {
+        return Object.keys(obj).reduce((acc, key) => {
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            if (Array.isArray(obj[key])) {
+              acc[snakeKey] = obj[key];
+            } else {
+              acc[snakeKey] = convertKeysToSnakeCase(obj[key]);
+            }
+            return acc;
+        }, {} as any);
+    }
+    return obj;
+};
 
-const API_URL = 'http://localhost:3001/api';
+const pageTitles: Record<MenuItemId, string> = {
+  dashboard: 'داشبورد',
+  customers: 'مدیریت مشتریان',
+  users: 'مدیریت کاربران',
+  contracts: 'مدیریت قرارداد ها',
+  tickets: 'مدیریت تیکت‌ها',
+  reports: 'گزارشات',
+  referrals: 'ارجاعات',
+  attendance: 'حضور و غیاب',
+  leave: 'مرخصی ها',
+  missions: 'ماموریت ها',
+};
 
-function App() {
-  // State for data
+const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [activePage, setActivePage] = useState<MenuItemId>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // All application data states
   const [users, setUsers] = useState<User[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [purchaseContracts, setPurchaseContracts] = useState<PurchaseContract[]>([]);
   const [supportContracts, setSupportContracts] = useState<SupportContract[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  
-  // App state
-  const [activePage, setActivePage] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // HR data
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [missions, setMissions] = useState<Mission[]>([]);
 
-
-  const fetchData = useCallback(async (entity?: string) => {
-    try {
-      const fetchPromises = {
-        users: () => fetch(`${API_URL}/users`).then(res => res.json()),
-        customers: () => fetch(`${API_URL}/customers`).then(res => res.json()),
-        contracts: () => fetch(`${API_URL}/contracts`).then(res => res.json()),
-        tickets: () => fetch(`${API_URL}/tickets`).then(res => res.json()),
-      };
-
-      if (entity) {
-         switch (entity) {
-            case 'users': setUsers(await fetchPromises.users()); break;
-            case 'customers': setCustomers(await fetchPromises.customers()); break;
-            case 'contracts': 
-                const { purchase, support } = await fetchPromises.contracts();
-                setPurchaseContracts(purchase);
-                setSupportContracts(support);
-                break;
-            case 'tickets':
-                const { tickets: fetchedTickets, referrals: fetchedReferrals } = await fetchPromises.tickets();
-                setTickets(fetchedTickets);
-                setReferrals(fetchedReferrals);
-                break;
-         }
+   useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(true);
       } else {
-         const [usersData, customersData, contractsData, ticketsData] = await Promise.all([
-            fetchPromises.users(),
-            fetchPromises.customers(),
-            fetchPromises.contracts(),
-            fetchPromises.tickets(),
-         ]);
-         setUsers(usersData);
-         setCustomers(customersData);
-         setPurchaseContracts(contractsData.purchase);
-         setSupportContracts(contractsData.support);
-         setTickets(ticketsData.tickets);
-         setReferrals(ticketsData.referrals);
+        setIsSidebarOpen(false);
       }
-    } catch (error) {
-        console.error("Failed to fetch data:", error);
-    } finally {
-        setLoading(false);
-    }
+    };
+    window.addEventListener('resize', handleResize);
+    // Initial check
+    handleResize(); 
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-  
-  useEffect(() => {
-    const socket = io('http://localhost:3001');
-
-    socket.on('connect', () => console.log('Connected to WebSocket server'));
-    socket.on('data_changed', (data: { entity: string }) => {
-        console.log(`Data changed for: ${data.entity}, refetching...`);
-        fetchData(data.entity);
-    });
-    socket.on('disconnect', () => console.log('Disconnected from WebSocket server'));
-
-    return () => {
-        socket.disconnect();
-    };
-  }, [fetchData]);
-
-  const apiRequest = async (url: string, method: string, body?: any) => {
+  const fetchAllData = useCallback(async () => {
+    if (!currentUser) return;
+    setIsProcessing(true);
     try {
-      const response = await fetch(`${API_URL}${url}`, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        ...(body && { body: JSON.stringify(body) }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'API request failed');
+        const [
+            usersRes, customersRes, purchaseContractsRes,
+            supportContractsRes, ticketsRes, referralsRes
+        ] = await Promise.all([
+            api.get('/users?select=*&order=id.asc'),
+            api.get('/customers?select=*&order=id.asc'),
+            api.get('/purchase_contracts?select=*&order=id.asc'),
+            api.get('/support_contracts?select=*&order=id.asc'),
+            api.get('/tickets?select=*&order=id.asc'),
+            api.get('/referrals?select=*,ticket:tickets(*)&order=id.asc')
+        ]);
+
+        const camelUsers = convertKeysToCamelCase(usersRes.data);
+        const camelCustomers = convertKeysToCamelCase(customersRes.data);
+        const camelTickets = convertKeysToCamelCase(ticketsRes.data);
+
+        setUsers(camelUsers);
+        setCustomers(camelCustomers);
+        setPurchaseContracts(convertKeysToCamelCase(purchaseContractsRes.data));
+        setSupportContracts(convertKeysToCamelCase(supportContractsRes.data));
+        setTickets(camelTickets);
+        
+        const camelReferrals = convertKeysToCamelCase(referralsRes.data).map((ref: any) => {
+            if (ref.ticket) {
+                ref.ticket = convertKeysToCamelCase(ref.ticket);
+            } else {
+                ref.ticket = camelTickets.find((t: Ticket) => t.id === ref.ticketId) || ref.ticket;
+            }
+            return ref;
+        });
+        setReferrals(camelReferrals);
+
+    } catch (error: any) {
+        console.error("خطا در دریافت اطلاعات کلی:", error.response?.data?.message || error.message);
+    } finally {
+        setIsProcessing(false);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+        fetchAllData();
+    }
+    if (isLoading) {
+        setIsLoading(false);
+    }
+  }, [currentUser, fetchAllData, isLoading]);
+
+
+  const handleLogin = async (username: string, password: string): Promise<boolean> => {
+    setIsProcessing(true);
+    try {
+      const { data, status } = await api.get(`/users?username=eq.${username}&password=eq.${password}&select=*`);
+      if (status === 200 && data && data.length > 0) {
+        const loggedInUser = convertKeysToCamelCase(data[0]);
+        setCurrentUser(loggedInUser);
+        return true;
       }
-      return response.json();
+      return false;
     } catch (error) {
-      console.error(`Error with ${method} ${url}:`, error);
-      // Here you could show an error toast to the user
+      console.error('خطای ورود:', error);
+      return false;
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  // --- CRUD Handlers ---
-  const handleSaveUser = (userData: User | Omit<User, 'id'>) => {
-    const isEditing = 'id' in userData;
-    apiRequest(isEditing ? `/users/${userData.id}` : '/users', isEditing ? 'PUT' : 'POST', userData);
-  };
-  const handleDeleteUser = (userId: number) => apiRequest(`/users/${userId}`, 'DELETE');
-  const handleDeleteUsers = (userIds: number[]) => apiRequest('/users/delete-many', 'POST', { ids: userIds });
-  
-  const handleSaveCustomer = (customerData: Customer | Omit<Customer, 'id'>) => {
-    const isEditing = 'id' in customerData;
-    apiRequest(isEditing ? `/customers/${customerData.id}` : '/customers', isEditing ? 'PUT' : 'POST', customerData);
-  };
-  const handleDeleteCustomer = (customerId: number) => apiRequest(`/customers/${customerId}`, 'DELETE');
-  const handleDeleteCustomers = (customerIds: number[]) => apiRequest('/customers/delete-many', 'POST', { ids: customerIds });
-
-  const handleSavePurchaseContract = (contractData: PurchaseContract | Omit<PurchaseContract, 'id'>) => {
-    const isEditing = 'id' in contractData;
-    apiRequest(isEditing ? `/contracts/purchase/${contractData.id}` : '/contracts/purchase', isEditing ? 'PUT' : 'POST', contractData);
-  };
-  const handleDeletePurchaseContract = (contractId: number) => apiRequest(`/contracts/purchase/${contractId}`, 'DELETE');
-  const handleDeletePurchaseContracts = (contractIds: number[]) => apiRequest('/contracts/purchase/delete-many', 'POST', { ids: contractIds });
-  
-  const handleSaveSupportContract = (contractData: SupportContract | Omit<SupportContract, 'id'>) => {
-    const isEditing = 'id' in contractData;
-    apiRequest(isEditing ? `/contracts/support/${contractData.id}` : '/contracts/support', isEditing ? 'PUT' : 'POST', contractData);
-  };
-  const handleDeleteSupportContract = (contractId: number) => apiRequest(`/contracts/support/${contractId}`, 'DELETE');
-  const handleDeleteSupportContracts = (contractIds: number[]) => apiRequest('/contracts/support/delete-many', 'POST', { ids: contractIds });
-  
-  const handleSaveTicket = (ticketData: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => {
-    const isEditing = 'id' in ticketData;
-    apiRequest(isEditing ? `/tickets/${ticketData.id}` : '/tickets', isEditing ? 'PUT' : 'POST', ticketData);
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setActivePage('dashboard');
   };
 
-  const handleToggleWork = (itemId: number) => apiRequest(`/tickets/${itemId}/toggle-work`, 'POST');
+  // CRUD Handlers
+  const handleSaveUser = async (user: User | Omit<User, 'id'>) => {
+    setIsProcessing(true);
+    try {
+        const payload = convertKeysToSnakeCase(user);
+        if ('id' in user) {
+            const { id, ...updateData } = payload;
+            await api.patch(`/users?id=eq.${id}`, updateData);
+        } else {
+            await api.post('/users', payload, { headers: { 'Prefer': 'return=minimal' } });
+        }
+        await fetchAllData();
+    } catch (error: any) { console.error("خطا در ذخیره کاربر:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
+  };
+  const handleDeleteUser = async (userId: number) => {
+    setIsProcessing(true);
+    try { await api.delete(`/users?id=eq.${userId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف کاربر:", error); } finally { setIsProcessing(false); }
+  };
+  const handleDeleteManyUsers = async (userIds: number[]) => {
+    setIsProcessing(true);
+    try { await api.delete(`/users?id=in.(${userIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف کاربران:", error); } finally { setIsProcessing(false); }
+  };
   
-  const handleReferTicket = (itemId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => {
-      apiRequest(`/tickets/${itemId}/refer`, 'POST', { referredTo: referredToUsername, isFromReferral, referredBy: referredBy.username });
+  const handleSaveCustomer = async (customer: Customer | Omit<Customer, 'id'>) => {
+    setIsProcessing(true);
+    try {
+        const payload = convertKeysToSnakeCase(customer);
+        if ('id' in customer) {
+            const { id, ...updateData } = payload;
+            await api.patch(`/customers?id=eq.${id}`, updateData);
+        } else {
+            await api.post('/customers', payload, { headers: { 'Prefer': 'return=minimal' } });
+        }
+        await fetchAllData();
+    } catch (error: any) { console.error("خطا در ذخیره مشتری:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
+  };
+  const handleDeleteCustomer = async (customerId: number) => {
+    setIsProcessing(true);
+    try { await api.delete(`/customers?id=eq.${customerId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف مشتری:", error); } finally { setIsProcessing(false); }
+  };
+  const handleDeleteManyCustomers = async (customerIds: number[]) => {
+    setIsProcessing(true);
+    try { await api.delete(`/customers?id=in.(${customerIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف مشتریان:", error); } finally { setIsProcessing(false); }
   };
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    const landingPage = user.accessibleMenus.includes('dashboard') ? 'dashboard' : user.accessibleMenus[0] || 'no_access';
-    setActivePage(landingPage);
+    const handleSaveTicket = async (ticketData: Ticket | Omit<Ticket, 'id'>) => {
+    setIsProcessing(true);
+    try {
+      let savedTicket: Ticket;
+      if ('id' in ticketData) {
+        const { id, ...updateData } = convertKeysToSnakeCase(ticketData);
+        const { data } = await api.patch(`/tickets?id=eq.${id}`, updateData, { headers: { 'Prefer': 'return=representation' } });
+        savedTicket = convertKeysToCamelCase(data[0]);
+      } else {
+        const creationTime = new Date();
+        const editableUntil = new Date(creationTime.getTime() + 15 * 60 * 1000).toISOString();
+        const payload = {
+          ...convertKeysToSnakeCase(ticketData),
+          ticket_number: `T-${Date.now().toString().slice(-5)}`,
+          creation_date_time: creationTime.toISOString(),
+          last_update_date: creationTime.toISOString(),
+          editable_until: editableUntil,
+        };
+        const { data } = await api.post('/tickets', payload, { headers: { 'Prefer': 'return=representation' } });
+        savedTicket = convertKeysToCamelCase(data[0]);
+      }
+      await fetchAllData();
+    } catch (error: any) { console.error("خطا در ذخیره تیکت:", error.response?.data || error.message); } finally { setIsProcessing(false); }
+  };
+
+  const handleDeleteTicket = async (ticketId: number) => {
+    setIsProcessing(true);
+    try { await api.delete(`/tickets?id=eq.${ticketId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف تیکت:", error); } finally { setIsProcessing(false); }
+  };
+
+  const handleReferTicket = async (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => {
+    setIsProcessing(true);
+    try {
+        // 1. Create referral record
+        await api.post('/referrals', {
+            ticket_id: ticketId,
+            referred_by_username: referredBy.username,
+            referred_to_username: referredToUsername,
+            referral_date: new Date().toISOString()
+        }, { headers: { 'Prefer': 'return=minimal' } });
+        
+        // 2. Update ticket status and assignee
+        await api.patch(`/tickets?id=eq.${ticketId}`, {
+            assigned_to_username: referredToUsername,
+            status: 'ارجاع شده',
+            last_update_date: new Date().toISOString()
+        });
+        
+        await fetchAllData();
+    } catch (error: any) { console.error("خطا در ارجاع تیکت:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
+  };
+
+  const handleToggleWork = async (ticketId: number) => {
+    setIsProcessing(true);
+    try {
+        const ticket = tickets.find(t => t.id === ticketId) || referrals.find(r => r.ticket.id === ticketId)?.ticket;
+        if (!ticket) throw new Error("تیکت یافت نشد");
+        
+        let updatePayload: any;
+        if (ticket.status === 'در حال پیگیری') { // Stop work
+            const sessionStart = new Date(ticket.workSessionStartedAt!).getTime();
+            const now = new Date().getTime();
+            const duration = Math.floor((now - sessionStart) / 1000);
+            updatePayload = {
+                status: 'اتمام یافته',
+                work_session_started_at: null,
+                total_work_duration: ticket.totalWorkDuration + duration,
+                last_update_date: new Date().toISOString()
+            };
+        } else { // Start work
+            updatePayload = {
+                status: 'در حال پیگیری',
+                work_session_started_at: new Date().toISOString(),
+                last_update_date: new Date().toISOString()
+            };
+        }
+        await api.patch(`/tickets?id=eq.${ticketId}`, updatePayload);
+        await fetchAllData();
+    } catch (error: any) { console.error("خطا در تغییر وضعیت کار:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
   };
   
-  const handleLogout = () => setCurrentUser(null);
+  const handleSavePurchaseContract = async (contract: PurchaseContract | Omit<PurchaseContract, 'id'>) => {
+    setIsProcessing(true);
+    try {
+        const payload = convertKeysToSnakeCase(contract);
+        if ('id' in contract) {
+            const { id, ...updateData } = payload;
+            await api.patch(`/purchase_contracts?id=eq.${id}`, updateData);
+        } else {
+            await api.post('/purchase_contracts', payload, { headers: { 'Prefer': 'return=minimal' } });
+        }
+        await fetchAllData();
+    } catch (error: any) { console.error("خطا در ذخیره قرارداد فروش:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
+  };
+  const handleDeletePurchaseContract = async (contractId: number) => {
+    setIsProcessing(true);
+    try { await api.delete(`/purchase_contracts?id=eq.${contractId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف قرارداد فروش:", error); } finally { setIsProcessing(false); }
+  };
+  const handleDeleteManyPurchaseContracts = async (contractIds: number[]) => {
+    setIsProcessing(true);
+    try { await api.delete(`/purchase_contracts?id=in.(${contractIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف قراردادهای فروش:", error); } finally { setIsProcessing(false); }
+  };
+  
+  const handleSaveSupportContract = async (contract: SupportContract | Omit<SupportContract, 'id'>) => {
+     setIsProcessing(true);
+    try {
+        const payload = convertKeysToSnakeCase(contract);
+        if ('id' in contract) {
+            const { id, ...updateData } = payload;
+            await api.patch(`/support_contracts?id=eq.${id}`, updateData);
+        } else {
+            await api.post('/support_contracts', payload, { headers: { 'Prefer': 'return=minimal' } });
+        }
+        await fetchAllData();
+    } catch (error: any) { console.error("خطا در ذخیره قرارداد پشتیبانی:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
+  };
+  const handleDeleteSupportContract = async (contractId: number) => {
+    setIsProcessing(true);
+    try { await api.delete(`/support_contracts?id=eq.${contractId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف قرارداد پشتیبانی:", error); } finally { setIsProcessing(false); }
+  };
+  const handleDeleteManySupportContracts = async (contractIds: number[]) => {
+    setIsProcessing(true);
+    try { await api.delete(`/support_contracts?id=in.(${contractIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف قراردادهای پشتیبانی:", error); } finally { setIsProcessing(false); }
+  };
+  
+  const handleRecordAttendance = (type: AttendanceType) => { /* Mock */ };
+  const handleSaveLeaveRequest = (request: LeaveRequest | Omit<LeaveRequest, 'id'>) => { /* Mock */ };
+  const handleLeaveStatusChange = (requestId: number, newStatus: LeaveRequestStatus) => { /* Mock */ };
+  const handleSaveMission = (mission: Mission | Omit<Mission, 'id'>) => { /* Mock */ };
 
-  if (loading && !currentUser) {
-    return (
-        <div className="flex h-screen items-center justify-center">
-            <p>در حال بارگذاری...</p>
-        </div>
-    );
+  const renderPage = useCallback(() => {
+    if (!currentUser) return null;
+    const pageComponents: { [key in MenuItemId]?: JSX.Element } = {
+        'dashboard': <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />,
+        'users': <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteManyUsers} currentUser={currentUser} />,
+        'customers': <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteManyCustomers} currentUser={currentUser} />,
+        'contracts': (
+            <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+                <main className="max-w-7xl mx-auto space-y-8">
+                    <PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeleteManyPurchaseContracts} currentUser={currentUser} />
+                    <SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteManySupportContracts} currentUser={currentUser} />
+                </main>
+            </div>
+        ),
+        'tickets': <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} currentUser={currentUser} />,
+        'referrals': <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} />,
+        'reports': <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} />,
+        'attendance': <AttendancePage currentUser={currentUser} records={attendanceRecords} onRecord={handleRecordAttendance} />,
+        'leave': <LeavePage currentUser={currentUser} leaveRequests={leaveRequests} users={users} onSave={handleSaveLeaveRequest} onStatusChange={handleLeaveStatusChange} />,
+        'missions': <MissionsPage currentUser={currentUser} missions={missions} users={users} onSave={handleSaveMission} />,
+    };
+    return pageComponents[activePage] || null;
+  }, [activePage, currentUser, users, customers, purchaseContracts, supportContracts, tickets, referrals, attendanceRecords, leaveRequests, missions, fetchAllData]);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">در حال بارگذاری...</div>;
   }
 
-  if (!currentUser) return <LoginPage onLogin={handleLogin} />;
-  
-  const hasAccess = (pageId: string) => currentUser.accessibleMenus.includes(pageId as any);
-
-  const renderActivePage = () => {
-    if (!hasAccess(activePage) && activePage !== 'no_access') return <PlaceholderPage title="دسترسی غیر مجاز" />;
-    
-    switch (activePage) {
-      case 'dashboard': return <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />;
-      case 'users': return <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteUsers} currentUser={currentUser} />;
-      case 'customers': return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteCustomers} currentUser={currentUser} />;
-      case 'contracts': return (
-        <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-           <main className="max-w-7xl mx-auto">
-            <div className="mb-8"><PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeletePurchaseContracts} currentUser={currentUser} /></div>
-            <div className="mt-12"><SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteSupportContracts} currentUser={currentUser} /></div>
-          </main>
-        </div>
-      );
-      case 'tickets': return <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} onSave={handleSaveTicket} onReferTicket={handleReferTicket} currentUser={currentUser} onToggleWork={handleToggleWork} supportContracts={supportContracts} />;
-      case 'reports': return <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} />;
-      case 'referrals': return <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} supportContracts={supportContracts} />;
-      case 'no_access': return <PlaceholderPage title="شما به هیچ صفحه‌ای دسترسی ندارید." />;
-      default: return <PlaceholderPage title="صفحه مورد نظر یافت نشد" />;
-    }
-  };
+  if (!currentUser) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   return (
-    <div className="relative lg:flex h-screen bg-gray-100 font-sans" dir="rtl">
-      {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-30 lg:hidden" aria-hidden="true"></div>}
-      <Sidebar activePage={activePage} setActivePage={setActivePage} isSidebarOpen={isSidebarOpen} user={currentUser} onLogout={handleLogout} onClose={() => setIsSidebarOpen(false)} />
+    <div className="flex h-screen bg-gray-100" dir="rtl">
+       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-30 lg:hidden" aria-hidden="true" />}
+      <Sidebar
+        user={currentUser}
+        activePage={activePage}
+        setActivePage={(page) => setActivePage(page as MenuItemId)}
+        isSidebarOpen={isSidebarOpen}
+        onLogout={handleLogout}
+        onClose={() => setIsSidebarOpen(false)}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex justify-between items-center bg-white border-b border-gray-200 h-20 px-6 flex-shrink-0">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500"><MenuIcon /></button>
-        </header>
-        <div className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50">{renderActivePage()}</div>
+         <Header
+          pageTitle={pageTitles[activePage]}
+          onToggleSidebar={() => setIsSidebarOpen(true)}
+        />
+        <div className="flex-1 flex" style={{ overflow: 'hidden' }}>
+          {renderPage()}
+        </div>
       </div>
+      <ProcessingOverlay isVisible={isProcessing} />
     </div>
   );
-}
+};
 
 export default App;

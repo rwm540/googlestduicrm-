@@ -11,6 +11,10 @@ import { TicketIcon } from './icons/TicketIcon';
 import { PurchaseIcon } from './icons/PurchaseIcon';
 import { toPersianDigits } from '../utils/dateFormatter';
 import { XIcon } from './icons/XIcon';
+// FIX: Added imports for HR feature icons.
+import { FingerPrintIcon } from './icons/FingerPrintIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
+import { BriefcaseIcon } from './icons/BriefcaseIcon';
 
 interface SidebarProps {
   activePage: string;
@@ -31,6 +35,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
     { id: 'tickets', label: 'تیکت ها', icon: <TicketIcon /> },
     { id: 'reports', label: 'گزارشات', icon: <DocumentTextIcon /> },
     { id: 'referrals', label: 'ارجاعات', icon: <HashtagIcon /> },
+    // FIX: Added navigation items for HR features.
+    { id: 'attendance', label: 'حضور و غیاب', icon: <FingerPrintIcon /> },
+    { id: 'leave', label: 'مرخصی ها', icon: <CalendarIcon /> },
+    { id: 'missions', label: 'ماموریت ها', icon: <BriefcaseIcon /> },
   ];
   
   const accessibleNavItems = allNavItems.filter(item => user.accessibleMenus.includes(item.id as MenuItemId));

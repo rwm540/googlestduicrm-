@@ -14,6 +14,7 @@ interface UserTableProps {
   currentUser: User;
 }
 
+// FIX: Added missing HR menu items ('attendance', 'leave', 'missions') to resolve the TypeScript error.
 const menuConfig: Record<MenuItemId, { label: string; color: string }> = {
   dashboard: { label: 'داشبورد', color: 'bg-gray-100 text-gray-700' },
   customers: { label: 'مشتریان', color: 'bg-cyan-100 text-cyan-700' },
@@ -22,6 +23,9 @@ const menuConfig: Record<MenuItemId, { label: string; color: string }> = {
   tickets: { label: 'تیکت ها', color: 'bg-rose-100 text-rose-700' },
   reports: { label: 'گزارشات', color: 'bg-blue-100 text-blue-700' },
   referrals: { label: 'ارجاعات', color: 'bg-amber-100 text-amber-700' },
+  attendance: { label: 'حضور و غیاب', color: 'bg-teal-100 text-teal-700' },
+  leave: { label: 'مرخصی ها', color: 'bg-orange-100 text-orange-700' },
+  missions: { label: 'ماموریت ها', color: 'bg-purple-100 text-purple-700' },
 };
 
 const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
@@ -41,7 +45,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
       {/* Mobile & Tablet Card View (for screens smaller than lg) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {users.map(user => (
-          <div key={user.id} className="bg-white p-4 space-y-3 relative">
+          <div key={user.id} className="bg-white p-4 space-y-4 relative">
              <div className="absolute top-4 left-4 z-10">
               <input 
                 type="checkbox"
@@ -55,13 +59,17 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
               <Avatar name={`${user.firstName} ${user.lastName}`} />
               <div>
                 <p className="font-bold text-slate-800">{user.firstName} {user.lastName}</p>
-                <p className="text-sm text-gray-500">@{user.username}</p>
+                <p className="mt-1"><code className="text-sm text-cyan-700 bg-cyan-50 px-2 py-1 rounded">@{user.username}</code></p>
               </div>
             </div>
             <div className="text-sm space-y-2 pt-2 border-t border-gray-100">
                 <div>
                     <span className="font-semibold text-gray-600">نقش: </span>
                     <span className="text-gray-500">{user.role}</span>
+                </div>
+                <div>
+                    <span className="font-semibold text-gray-600">رمز عبور: </span>
+                    <span className="text-gray-500 font-mono">{user.password || 'نامشخص'}</span>
                 </div>
                 <div>
                     <span className="font-semibold text-gray-600">دسترسی‌ها: </span>
@@ -114,8 +122,8 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
                 </div>
               </th>
               <th scope="col" className="px-6 py-4">کاربر</th>
-              <th scope="col" className="px-6 py-4">نام کاربری</th>
               <th scope="col" className="px-6 py-4">نقش</th>
+              <th scope="col" className="px-6 py-4">رمز عبور</th>
               <th scope="col" className="px-6 py-4">دسترسی‌ها</th>
               <th scope="col" className="px-6 py-4 text-left">اقدامات</th>
             </tr>
@@ -137,19 +145,20 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
                      <Avatar name={`${user.firstName} ${user.lastName}`} />
                      <div>
                        <div className="font-medium text-slate-800">{user.firstName} {user.lastName}</div>
+                       <code className="text-sm text-cyan-700 bg-cyan-50 px-2 py-1 rounded mt-1 inline-block">@{user.username}</code>
                      </div>
                    </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="font-mono text-gray-500">@{user.username}</span>
                 </td>
                  <td className="px-6 py-4">
                   <span className="text-gray-500">{user.role}</span>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1 max-w-xs">
+                  <span className="font-mono text-gray-500">{user.password || 'نامشخص'}</span>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1">
                     {user.accessibleMenus.map(menuId => (
-                      <span key={menuId} className={`px-2 py-1 text-xs font-bold rounded-full ${menuConfig[menuId]?.color || ''}`}>
+                      <span key={menuId} className={`px-2 py-0.5 text-xs font-bold rounded-full ${menuConfig[menuId]?.color || ''}`}>
                         {menuConfig[menuId]?.label || menuId}
                       </span>
                     ))}

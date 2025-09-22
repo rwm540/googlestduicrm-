@@ -1,30 +1,27 @@
-export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals';
+// types.ts
 
-export type UserRole =
-  | 'مدیر'
-  | 'مسئول پشتیبان'
-  | 'مسئول برنامه نویس'
-  | 'مسئول فروش'
-  | 'کارشناس فروش'
-  | 'کارشناس پشتیبانی'
-  | 'کارشناس برنامه نویس';
-
+// User Management
+// FIX: Added HR menu item IDs to integrate new pages.
+export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals' | 'attendance' | 'leave' | 'missions';
+// FIX: Corrected typo 'کارشناс' to 'کارشناس'
+export type UserRole = 'مدیر' | 'مسئول فروش' | 'مسئول پشتیبان' | 'مسئول برنامه نویس' | 'کارشناس فروش' | 'کارشناس پشتیبانی' | 'کارشناس برنامه نویس';
 
 export interface User {
   id: number;
   firstName: string;
   lastName: string;
   username: string;
-  password?: string;
+  password?: string; // Password is optional when reading user data
   accessibleMenus: MenuItemId[];
   role: UserRole;
 }
 
+// Customer Management
 export type Gender = 'مرد' | 'زن';
 export type MaritalStatus = 'مجرد' | 'متاهل';
 export type PaymentMethod = 'نقد' | 'چک' | 'کارت' | 'حواله' | 'کارت به کارت' | 'حواله بانکی';
-export type CustomerLevel = 'A' | 'B' | 'C' | 'D';
 export type SoftwareType = 'رستورانی' | 'فروشگاهی' | 'شرکتی' | 'عمومی';
+export type CustomerLevel = 'A' | 'B' | 'C' | 'D';
 export type CustomerStatus = 'فعال' | 'غیرفعال';
 
 export interface Customer {
@@ -55,11 +52,16 @@ export interface Customer {
   status: CustomerStatus;
 }
 
-export type ContractStatus = 'فعال' | 'در انتظار تایید' | 'منقضی شده' | 'لغو شده';
+
+// Contract Management
 export type ContractType = "خرید دائم" | "اشتراک دوره ای" | "اجاره ی نرم افزار" | "سفارشی سازی";
-export type CustomerType = "شخصی" | "سازمانی";
+export type ContractStatus = 'فعال' | 'در انتظار تایید' | 'منقضی شده' | 'لغو شده';
 export type NetworkSupport = "بله" | "خیر";
 export type PaymentStatus = "پرداخت شده" | "بدهی باقی مانده" | "در حال پیگیری";
+export type SupportContractDuration = 'شش ماهه' | 'یکساله' | 'موردی';
+export type SupportContractType = 'تلفنی' | 'ریموت' | 'حضوری';
+export type SupportContractLevel = 'طلایی' | 'نقره ای' | 'برنزه';
+export type SupportContractStatus = ContractStatus;
 
 export interface PurchaseContract {
     id: number;
@@ -70,14 +72,13 @@ export interface PurchaseContract {
     contractType: ContractType;
     contractStatus: ContractStatus;
     softwareVersion: string;
-    customerType: CustomerType;
-    customerName: string;
+    customerId: number | null;
     economicCode: string;
     customerAddress: string;
     customerContact: string;
     customerRepresentative: string;
     vendorName: string;
-    salesperson: string; // username of user
+    salespersonUsername: string | null;
     softwareName: string;
     licenseCount: number;
     softwareDescription: string;
@@ -106,16 +107,10 @@ export interface PurchaseContract {
     nonCompeteClause: string;
     disputeResolution: string;
     lastStatusChangeDate: string;
-    crmResponsible: string; // username of user
+    crmResponsibleUsername: string | null;
     notes: string;
     futureTasks: string;
 }
-
-export type SupportContractDuration = 'شش ماهه' | 'یکساله' | 'موردی';
-export type SupportContractType = 'تلفنی' | 'ریموت' | 'حضوری';
-export type SupportContractLevel = 'طلایی' | 'نقره ای' | 'برنزه';
-export type SupportContractStatus = 'فعال' | 'در انتظار تایید' | 'منقضی شده' | 'لغو شده';
-
 
 export interface SupportContract {
     id: number;
@@ -140,61 +135,11 @@ export interface SupportContract {
     softwareType: SoftwareType;
 }
 
+// Ticket & Referral Management
 export type TicketStatus = 'انجام نشده' | 'در حال پیگیری' | 'اتمام یافته' | 'ارجاع شده';
 export type TicketPriority = 'کم' | 'متوسط' | 'ضطراری';
-export type TicketType =
-  | 'نصب'
-  | 'اپدیت'
-  | 'اموزش'
-  | 'طراحی و چاپ'
-  | 'تبدیل اطلاعات'
-  | 'رفع اشکال'
-  | 'راه اندازی'
-  | 'مشکل برنامه نویسی'
-  | 'سایر'
-  | 'فراصدر'
-  | 'گزارشات'
-  | 'تنظیمات نرم افزاری'
-  | 'مجوزدهی'
-  | 'صندوق'
-  | 'پوز'
-  | 'ترازو'
-  | 'انبار'
-  | 'چک'
-  | 'تعریف'
-  | 'سیستم'
-  | 'مودیان'
-  | 'بیمه'
-  | 'حقوق دستمزد'
-  | 'بکاپ'
-  | 'اوند'
-  | 'کیوسک'
-  | 'افتتاحیه'
-  | 'اختتامیه'
-  | 'تغییر مسیر'
-  | 'پرینتر'
-  | 'کارتخوان'
-  | 'sql'
-  | 'پنل پیامکی'
-  | 'کلاینت'
-  | 'صورتحساب'
-  | 'مغایرت گیری'
-  | 'ویندوزی'
-  | 'چاپ'
-  | 'پایان سال'
-  | 'دمو'
-  | 'خطا'
-  | 'درخواست'
-  | 'مشکل';
+export type TicketType = 'نصب' | 'اپدیت' | 'اموزش' | 'طراحی و چاپ' | 'تبدیل اطلاعات' | 'رفع اشکال' | 'راه اندازی' | 'مشکل برنامه نویسی' | 'سایر' | 'فراصدر' | 'گزارشات' | 'تنظیمات نرم افزاری' | 'مجوزدهی' | 'صندوق' | 'پوز' | 'ترازو' | 'انبار' | 'چک' | 'تعریف' | 'سیستم' | 'مودیان' | 'بیمه' | 'حقوق دستمزد' | 'بکاپ' | 'اوند' | 'کیوسک' | 'افتتاحیه' | 'اختتامیه' | 'تغییر مسیر' | 'پرینتر' | 'کارتخوان' | 'sql' | 'پنل پیامکی' | 'کلاینت' | 'صورتحساب' | 'مغایرت گیری' | 'ویندوزی' | 'چاپ' | 'پایان سال' | 'دمو' | 'خطا' | 'درخواست' | 'مشکل';
 export type TicketChannel = 'تلفن' | 'ایمیل' | 'پورتال' | 'حضوری';
-
-export interface TicketUpdate {
-    id: number;
-    author: string; // username
-    date: string;
-    description: string;
-    timeSpent: number; // in minutes
-}
 
 export interface Ticket {
     id: number;
@@ -208,62 +153,59 @@ export interface Ticket {
     priority: TicketPriority;
     type: TicketType;
     channel: TicketChannel;
-    assignedTo: string; // username
-    attachments: string[]; // file names
-    updates: TicketUpdate[];
-    // New fields for automated system
-    editableUntil: string; // ISO string for when the ticket becomes non-editable
-    workSessionStartedAt?: string; // ISO string for when the current work session started
-    totalWorkDuration: number; // in seconds
+    assignedToUsername: string;
+    attachments: string[];
+    editableUntil: string;
+    workSessionStartedAt?: string;
+    totalWorkDuration: number;
 }
 
 export interface Referral {
-  id: number;
-  ticket: Ticket;
-  referredBy: string; // username of referrer
-  referredTo: string; // username of new assignee
-  referralDate: string; // ISO string
+    id: number;
+    ticketId: number;
+    referredByUsername: string;
+    referredToUsername: string;
+    referralDate: string;
+    ticket: Ticket; // Hydrated in App.tsx
 }
-// Fix: Added missing HR-related types to resolve import errors.
-export type AttendanceType = 'ورود' | 'خروج';
 
+// HR Management
+export type AttendanceType = 'ورود' | 'خروج';
 export interface AttendanceRecord {
-  id: number;
-  userId: number;
-  timestamp: string; // ISO string
-  type: AttendanceType;
+    id: number;
+    userId: number;
+    timestamp: string;
+    type: AttendanceType;
 }
 
 export type LeaveType = 'روزانه' | 'ساعتی';
 export type LeaveRequestStatus = 'در انتظار تایید' | 'تایید شده' | 'رد شده';
-
 export interface LeaveRequest {
-  id: number;
-  userId: number;
-  leaveType: LeaveType;
-  startDate: string; // Jalaali date string
-  endDate: string; // Jalaali date string
-  startTime?: string; // e.g., "09:00"
-  endTime?: string; // e.g., "17:00"
-  reason: string;
-  status: LeaveRequestStatus;
-  requestedAt: string; // ISO string
+    id: number;
+    userId: number;
+    leaveType: LeaveType;
+    startDate: string;
+    endDate: string;
+    startTime?: string;
+    endTime?: string;
+    reason: string;
+    status: LeaveRequestStatus;
+    requestedAt: string;
 }
 
 export interface MissionTask {
-  id: number;
-  description: string;
-  completed: boolean;
+    id: number;
+    description: string;
+    completed: boolean;
 }
-
 export interface Mission {
-  id: number;
-  title: string;
-  description: string;
-  assignedTo: number; // User ID
-  createdBy: number; // User ID
-  tasks: MissionTask[];
-  startTimestamp: string; // ISO string
-  endTimestamp: string; // ISO string
-  completed: boolean;
+    id: number;
+    title: string;
+    description: string;
+    assignedTo: number;
+    createdBy: number;
+    tasks: MissionTask[];
+    startTimestamp: string;
+    endTimestamp: string;
+    completed: boolean;
 }

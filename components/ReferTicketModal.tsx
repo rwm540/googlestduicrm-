@@ -1,6 +1,4 @@
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Ticket, User, UserRole } from '../types';
 import Modal from './Modal';
 import { toPersianDigits } from '../utils/dateFormatter';
@@ -27,57 +25,52 @@ const getDepartment = (role: UserRole): string => {
 const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, onRefer, tickets, users, currentUser }) => {
   const [newAssignee, setNewAssignee] = useState('');
 
-  useEffect(() => {
-    if (!isOpen || !tickets || tickets.length === 0) {
-      setNewAssignee('');
-      return;
-    }
-
-    const currentAssignees = new Set(tickets.map(t => t.assignedTo));
+  const availableUsers = useMemo(() => {
+    if (!isOpen || !tickets) return [];
     
-    const availableUsers = users.filter(user => {
-        if (currentAssignees.has(user.username)) return false; // Exclude current assignees
-        
-        if (currentUser.role === 'مدیر') {
-            return isLead(user.role); // Admin refers to Leads
-        }
-        if (isLead(currentUser.role)) {
-            const currentUserDept = getDepartment(currentUser.role);
-            const targetUserDept = getDepartment(user.role);
-            // Lead can refer to Admin, other Leads, or Specialists in their own department
-            return user.role === 'مدیر' || isLead(user.role) || (isSpecialist(user.role) && currentUserDept === targetUserDept);
-        }
-        return false; // Specialists cannot refer
-      });
+    const currentAssignees = new Set(tickets.map(t => t.assignedToUsername));
 
-    if (availableUsers.length > 0) {
-        setNewAssignee(availableUsers[0].username);
-    } else {
-        setNewAssignee('');
-    }
+    return users.filter(user => {
+      if (currentAssignees.has(user.username)) return false;
 
+      // مدیر: فقط به مسئولان ارجاع می‌دهد
+      if (currentUser.role === 'مدیر') {
+        return isLead(user.role);
+      }
+
+      // مسئول: به مدیر، سایر مسئولان، و کارشناسان واحد خود ارجاع می‌دهد
+      if (isLead(currentUser.role)) {
+        const currentUserDept = getDepartment(currentUser.role);
+        const targetUserDept = getDepartment(user.role);
+        return user.role === 'مدیر' || isLead(user.role) || (isSpecialist(user.role) && currentUserDept === targetUserDept);
+      }
+
+      // کارشناس: فقط به مسئول مستقیم خود ارجاع می‌دهد
+      if (isSpecialist(currentUser.role)) {
+        const currentUserDept = getDepartment(currentUser.role);
+        const leadRoleForDept = `مسئول ${currentUserDept}` as UserRole;
+        return user.role === leadRoleForDept;
+      }
+      
+      return false; // سایر نقش‌ها قابلیت ارجاع ندارند
+    });
   }, [isOpen, tickets, users, currentUser]);
+  
+  useEffect(() => {
+    if (isOpen) {
+      if (availableUsers.length > 0) {
+        setNewAssignee(availableUsers[0].username);
+      } else {
+        setNewAssignee('');
+      }
+    }
+  }, [isOpen, availableUsers]);
 
   if (!tickets || tickets.length === 0) return null;
 
   const isGroupRefer = tickets.length > 1;
   const firstTicket = tickets[0];
   
-  const currentAssignees = new Set(tickets.map(t => t.assignedTo));
-
-  const availableUsers = users.filter(user => {
-    if (currentAssignees.has(user.username)) return false;
-    if (currentUser.role === 'مدیر') {
-        return isLead(user.role);
-    }
-    if (isLead(currentUser.role)) {
-        const currentUserDept = getDepartment(currentUser.role);
-        const targetUserDept = getDepartment(user.role);
-        return user.role === 'مدیر' || isLead(user.role) || (isSpecialist(user.role) && currentUserDept === targetUserDept);
-    }
-    return false;
-  });
-
   const handleRefer = () => {
     if (newAssignee) {
       onRefer(newAssignee);
@@ -92,7 +85,7 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
   
   const currentAssigneeName = isGroupRefer 
     ? 'چند کاربر' 
-    : getAssigneeName(firstTicket.assignedTo);
+    : getAssigneeName(firstTicket.assignedToUsername);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md">

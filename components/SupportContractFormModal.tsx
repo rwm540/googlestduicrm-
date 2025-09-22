@@ -3,6 +3,7 @@ import { SupportContract, Customer, SupportContractDuration, SupportContractType
 import Modal from './Modal';
 import DatePicker from './DatePicker';
 import { getPurchaseContractStatusByDate } from '../utils/dateFormatter';
+import SearchableSelect from './SearchableSelect';
 
 declare const jalaali: any;
 
@@ -84,8 +85,8 @@ const SupportContractFormModal: React.FC<SupportContractFormModalProps> = ({ isO
     }
   }, [contract, isOpen]);
   
-  const handleCustomerChange = (customerId: number) => {
-    const selectedCustomer = customers.find(c => c.id === customerId);
+  const handleCustomerChange = (customerId: number | string) => {
+    const selectedCustomer = customers.find(c => c.id === Number(customerId));
     if(selectedCustomer) {
         setFormData(prev => ({
             ...prev,
@@ -156,21 +157,15 @@ const SupportContractFormModal: React.FC<SupportContractFormModalProps> = ({ isO
         </h3>
         <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                 <div className="lg:col-span-3">
                     <FormField label="مشتری (برای تکمیل خودکار)">
-                        <select
-                            value={formData.customerId || ''}
-                            onChange={(e) => handleCustomerChange(Number(e.target.value))}
-                            className={inputClass}
-                        >
-                            <option value="">انتخاب کنید...</option>
-                            {customers.map(c => (
-                                <option key={c.id} value={c.id}>
-                                    {c.companyName} ({c.firstName} {c.lastName})
-                                </option>
-                            ))}
-                        </select>
+                        <SearchableSelect
+                            options={customers.map(c => ({ value: c.id, label: `${c.companyName} (${c.firstName} ${c.lastName})`}))}
+                            value={formData.customerId}
+                            onChange={handleCustomerChange}
+                            placeholder="جستجوی مشتری..."
+                        />
                     </FormField>
                 </div>
                 

@@ -6,6 +6,7 @@ import { PlusIcon } from '../components/icons/PlusIcon';
 import Pagination from '../components/Pagination';
 import { toPersianDigits } from '../utils/dateFormatter';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface SupportContractsProps {
   contracts: SupportContract[];
@@ -24,6 +25,10 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  
+  // State for confirmation modal
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [itemsToDelete, setItemsToDelete] = useState<number[] | null>(null);
 
   const handleOpenModal = (contract: SupportContract | null = null) => {
     setEditingContract(contract);
@@ -38,6 +43,21 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
   const handleSaveContract = (contractData: SupportContract | Omit<SupportContract, 'id'>) => {
     onSave(contractData);
     handleCloseModal();
+  };
+  
+  const handleCloseConfirmation = () => {
+    setItemToDelete(null);
+    setItemsToDelete(null);
+  };
+  
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      onDelete(itemToDelete);
+    } else if (itemsToDelete) {
+      onDeleteMany(itemsToDelete);
+      setSelectedIds([]);
+    }
+    handleCloseConfirmation();
   };
   
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,13 +98,6 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
     }
   };
 
-  const handleDeleteSelected = () => {
-    if (window.confirm(`آیا از حذف ${toPersianDigits(selectedIds.length)} قرارداد انتخاب شده اطمینان دارید؟`)) {
-      onDeleteMany(selectedIds);
-      setSelectedIds([]);
-    }
-  };
-
   const allOnPageSelected = paginatedContracts.length > 0 && paginatedContracts.every(c => selectedIds.includes(c.id));
 
   return (
@@ -114,7 +127,7 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
               />
               {currentUser.role === 'مدیر' && selectedIds.length > 0 && (
                 <button
-                  onClick={handleDeleteSelected}
+                  onClick={() => setItemsToDelete(selectedIds)}
                   className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-sm whitespace-nowrap"
                 >
                   <TrashIcon />
@@ -136,7 +149,7 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
               contracts={paginatedContracts} 
               customers={customers}
               onEdit={handleOpenModal} 
-              onDelete={onDelete} 
+              onDelete={(contractId) => setItemToDelete(contractId)}
               selectedIds={selectedIds}
               onToggleSelect={handleToggleSelect}
               onToggleSelectAll={handleToggleSelectAll}
@@ -158,6 +171,13 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
         contract={editingContract}
         customers={customers}
       />
+      <ConfirmationModal
+          isOpen={!!itemToDelete || !!itemsToDelete}
+          onClose={handleCloseConfirmation}
+          onConfirm={handleConfirmDelete}
+          title="تایید حذف"
+          message={itemToDelete ? `آیا از حذف این قرارداد اطمینان دارید؟` : `آیا از حذف ${toPersianDigits(itemsToDelete?.length || 0)} قرارداد انتخاب شده اطمینان دارید؟`}
+        />
     </>
   );
 };

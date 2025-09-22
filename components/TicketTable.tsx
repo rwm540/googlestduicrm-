@@ -16,6 +16,7 @@ interface TicketTableProps {
   onEdit: (ticket: Ticket) => void;
   onRefer: (ticket: Ticket) => void;
   onToggleWork: (ticketId: number) => void;
+  onDelete?: (ticketId: number) => void;
   isReferralTable: boolean;
   emptyMessage?: string;
   selectedIds: number[];
@@ -43,7 +44,7 @@ const toPersianDigits = (n: string | number): string => {
   return String(n).replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
 };
 
-const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
+const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, onDelete, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
   
   const allOnPageSelected = tickets.length > 0 && tickets.every(t => selectedIds.includes(t.id));
   
@@ -130,9 +131,9 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                         {statusStyles[ticket.status]?.text}
                     </span>
                 </td>
-                <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>{getAssigneeName(ticket.assignedTo)}</td>
+                <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>{getAssigneeName(ticket.assignedToUsername)}</td>
                 <td className="px-6 py-4 text-left">
-                  <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} />
+                  <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} />
                 </td>
               </tr>
             ))}
@@ -142,7 +143,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
        {/* Mobile & Tablet Card View */}
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {tickets.map(ticket => (
-          <div key={ticket.id} className="bg-white p-4 space-y-3 relative">
+          <div key={ticket.id} className="bg-white p-4 space-y-3 relative flex flex-col">
              <div className="absolute top-4 left-4">
                 <input id={`checkbox-mobile-${ticket.id}`} type="checkbox" 
                     checked={selectedIds.includes(ticket.id)} 
@@ -150,17 +151,17 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                     className="w-5 h-5 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"/>
                 <label htmlFor={`checkbox-mobile-${ticket.id}`} className="sr-only">checkbox</label>
              </div>
-            <div onClick={() => onEdit(ticket)}>
+            <div className="flex-grow cursor-pointer" onClick={() => onEdit(ticket)}>
                 <div className="flex items-start justify-between">
                     <div>
-                        <p className="font-bold text-slate-800 flex items-center gap-2">
+                        <p className="text-lg font-bold text-slate-800 flex items-center gap-2 pr-8">
                           {ticket.attachments && ticket.attachments.length > 0 && <PaperClipIcon />}
                           <span>{ticket.title}</span>
                         </p>
-                        <p className="text-sm text-gray-500">{getCustomerName(ticket.customerId)}</p>
-                        <p className={`font-mono text-xs pt-1 border-r-2 pr-2 mt-1 ${priorityStyles[ticket.priority]}`}>{toPersianDigits(ticket.ticketNumber)}</p>
+                        <p className="text-sm text-gray-500 mt-1">{getCustomerName(ticket.customerId)}</p>
+                        <p className={`font-mono text-xs pt-1 border-r-2 pr-2 mt-2 ${priorityStyles[ticket.priority]}`}>{toPersianDigits(ticket.ticketNumber)}</p>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
                       <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-bold rounded-full ${statusStyles[ticket.status]?.color || ''}`}>
                           {statusStyles[ticket.status]?.icon}
                           {statusStyles[ticket.status]?.text}
@@ -172,12 +173,12 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                       )}
                     </div>
                 </div>
-                <div className="text-sm text-gray-600 pt-2 border-t border-gray-100 mt-2">
-                    <p>کاربر: {getAssigneeName(ticket.assignedTo)}</p>
+                <div className="text-sm text-gray-600 pt-3 border-t border-gray-100 mt-3">
+                    <p><span className="font-semibold">کاربر:</span> {getAssigneeName(ticket.assignedToUsername)}</p>
                 </div>
             </div>
-            <div className="border-t pt-2">
-                 <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} />
+            <div className="border-t pt-2 mt-3">
+                 <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} />
             </div>
           </div>
         ))}

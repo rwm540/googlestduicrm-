@@ -1,11 +1,12 @@
 import React from 'react';
-import { PurchaseContract, ContractStatus, User } from '../types';
+import { PurchaseContract, ContractStatus, User, Customer } from '../types';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { getPurchaseContractStatusByDate, toPersianDigits, formatCurrency } from '../utils/dateFormatter';
 
 interface PurchaseContractTableProps {
   contracts: PurchaseContract[];
+  customers: Customer[];
   onEdit: (contract: PurchaseContract) => void;
   onDelete: (contractId: number) => void;
   selectedIds: number[];
@@ -21,8 +22,14 @@ const statusStyles: { [key in ContractStatus]: string } = {
   'لغو شده': 'bg-red-100 text-red-700',
 };
 
-const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
+const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts, customers, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
   const allOnPageSelected = contracts.length > 0 && contracts.every(c => selectedIds.includes(c.id));
+  
+  const getCustomerName = (customerId: number | null): string => {
+    if (!customerId) return 'نامشخص';
+    const customer = customers.find(c => c.id === customerId);
+    return customer ? customer.companyName : 'یافت نشد';
+  };
 
   if (contracts.length === 0) {
     return (
@@ -40,7 +47,7 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
         {contracts.map(contract => {
             const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
             return (
-              <div key={contract.id} className="bg-white p-4 space-y-3 relative">
+              <div key={contract.id} className="bg-white p-4 space-y-4 relative">
                   <div className="absolute top-4 left-4 z-10">
                     <input 
                       type="checkbox"
@@ -52,16 +59,16 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                   </div>
                   <div className="flex items-start justify-between">
                       <div>
-                          <p className="font-bold text-slate-800">{contract.customerName}</p>
-                          <p className="text-sm text-gray-500 font-mono">{toPersianDigits(contract.contractId)}</p>
+                          <p className="text-lg font-bold text-slate-800">{getCustomerName(contract.customerId)}</p>
+                          <p className="text-sm text-gray-500 font-mono" title="شناسه قرارداد">{toPersianDigits(contract.contractId)}</p>
                       </div>
                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusStyles[displayStatus]}`}>
                           {displayStatus}
                       </span>
                   </div>
-                  <div className="text-sm text-gray-600 space-y-1 pt-2 border-t border-gray-100">
-                      <p>نوع قرارداد: {contract.contractType}</p>
-                      <p>مبلغ کل: <span className="font-mono">{formatCurrency(contract.totalAmount)}</span> ریال</p>
+                  <div className="text-sm text-gray-600 space-y-2 pt-3 border-t border-gray-100">
+                      <p><span className="font-semibold">نوع قرارداد:</span> {contract.contractType}</p>
+                      <p><span className="font-semibold">مبلغ کل:</span> <span className="font-mono">{formatCurrency(contract.totalAmount)}</span> ریال</p>
                   </div>
                   <div className="flex items-center justify-end pt-2">
                       <div className="flex items-center gap-2">
@@ -124,7 +131,7 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                   </div>
                 </td>
                 <td className="px-6 py-4 font-mono font-medium text-slate-800">{toPersianDigits(contract.contractId)}</td>
-                <td className="px-6 py-4">{contract.customerName}</td>
+                <td className="px-6 py-4">{getCustomerName(contract.customerId)}</td>
                 <td className="px-6 py-4">{contract.contractType}</td>
                 <td className="px-6 py-4 font-mono">{formatCurrency(contract.totalAmount)}</td>
                 <td className="px-6 py-4">

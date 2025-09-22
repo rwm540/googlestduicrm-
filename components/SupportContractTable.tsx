@@ -46,7 +46,7 @@ const SupportContractTable: React.FC<SupportContractTableProps> = ({ contracts, 
         {contracts.map(contract => {
             const displayStatus = getCalculatedStatus(contract.endDate, contract.status);
             return (
-              <div key={contract.id} className="bg-white p-4 space-y-3 relative">
+              <div key={contract.id} className="bg-white p-4 space-y-4 relative">
                   <div className="absolute top-4 left-4 z-10">
                     <input 
                       type="checkbox"
@@ -58,14 +58,18 @@ const SupportContractTable: React.FC<SupportContractTableProps> = ({ contracts, 
                   </div>
                   <div className="flex items-start justify-between">
                       <div>
-                          <p className="font-bold text-slate-800">{getCustomerName(contract.customerId)}</p>
-                          <p className="text-sm text-gray-500">پایان پشتیبانی: {toPersianDigits(contract.endDate)}</p>
+                          <p className="text-lg font-bold text-slate-800">{getCustomerName(contract.customerId)}</p>
+                          <p className="text-sm text-gray-500">پایان پشتیبانی: <span className="font-mono">{toPersianDigits(contract.endDate)}</span></p>
                       </div>
                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusStyles[displayStatus]}`}>
                           {displayStatus}
                       </span>
                   </div>
-                  <div className="flex items-center justify-end pt-2 border-t mt-2">
+                  <div className="text-sm text-gray-600 space-y-2 pt-3 border-t border-gray-100">
+                      <p><span className="font-semibold">مدت:</span> {contract.duration}</p>
+                      <p><span className="font-semibold">سطح:</span> {contract.level}</p>
+                  </div>
+                  <div className="flex items-center justify-end pt-2">
                       <div className="flex items-center gap-2">
                           <button onClick={() => onEdit(contract)} className="p-2 text-yellow-500 hover:text-yellow-600 rounded-full hover:bg-yellow-100 transition-colors">
                               <EditIcon />

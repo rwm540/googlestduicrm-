@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel, Referral } from '../types';
 import Modal from './Modal';
@@ -9,6 +7,7 @@ import { FileUploadIcon } from './icons/FileUploadIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PaperClipIcon } from './icons/PaperClipIcon';
 import ReferralHistoryTimeline from './ReferralHistoryTimeline';
+import SearchableSelect from './SearchableSelect';
 
 interface TicketFormModalProps {
   isOpen: boolean;
@@ -44,9 +43,8 @@ const getInitialState = (currentUser: User): Omit<Ticket, 'id'> => ({
     priority: 'متوسط',
     type: 'سایر',
     channel: 'تلفن',
-    assignedTo: currentUser.username,
+    assignedToUsername: currentUser.username,
     attachments: [],
-    updates: [],
     editableUntil: '',
     totalWorkDuration: 0,
 });
@@ -65,7 +63,6 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     ? (isReadOnly ? `مشاهده تیکت #${ticket.ticketNumber}` : `ویرایش تیکت #${ticket.ticketNumber}`)
     : 'ایجاد تیکت جدید';
   
-  const isLead = currentUser.role.startsWith('مسئول');
   const ticketHistory = ticket ? referrals.filter(r => r.ticket.id === ticket.id).sort((a,b) => new Date(a.referralDate).getTime() - new Date(b.referralDate).getTime()) : [];
   
   useEffect(() => {
@@ -96,17 +93,18 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
       const validationErrors: string[] = [];
       const validFiles: File[] = [];
 
-      files.forEach(file => {
+      // FIX: Replaced forEach with a for...of loop to resolve type inference issues where 'file' was treated as 'unknown'.
+      for (const file of files) {
         if (!file.type.startsWith('image/')) {
           validationErrors.push(`فایل "${file.name}" یک تصویر نیست.`);
-          return;
+          continue;
         }
         if (file.size > 2 * 1024 * 1024) {
           validationErrors.push(`حجم فایل "${file.name}" بیشتر از ۲ مگابایت است.`);
-          return;
+          continue;
         }
         validFiles.push(file);
-      });
+      }
 
       if (validationErrors.length > 0) {
         setErrors(prev => [...prev, ...validationErrors]);
@@ -149,6 +147,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   };
   
   const allAttachmentNames = [...formData.attachments, ...newAttachments.map(f => f.name)];
+  
+  const searchableOptions = {
+      titles: ticketTypeOptions.map(t => ({ value: t, label: t })),
+      customers: customers.map(c => ({ value: c.id, label: c.companyName })),
+      users: users.map(u => ({ value: u.username, label: `${u.firstName} ${u.lastName}` })),
+      types: ticketTypeOptions.map(t => ({ value: t, label: t })),
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl">
@@ -161,27 +166,36 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         <div className="flex-grow p-6 space-y-6 overflow-y-auto">
           <Alert messages={errors} onClose={() => setErrors([])} />
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
             <div>
               <label htmlFor="title" className={labelClass}>عنوان تیکت</label>
-              <select id="title" name="title" value={formData.title} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
-                <option value="">انتخاب کنید...</option>
-                {ticketTypeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <SearchableSelect
+                options={searchableOptions.titles}
+                value={formData.title}
+                onChange={value => setFormData(f => ({ ...f, title: String(value) }))}
+                placeholder="انتخاب یا جستجوی عنوان..."
+                disabled={isReadOnly}
+              />
             </div>
             <div>
               <label htmlFor="customerId" className={labelClass}>مشتری</label>
-              <select id="customerId" name="customerId" value={formData.customerId} onChange={(e) => setFormData(f => ({...f, customerId: Number(e.target.value)}))} className={inputClass} disabled={isReadOnly}>
-                <option value={0} disabled>انتخاب کنید...</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.companyName}</option>)}
-              </select>
+              <SearchableSelect
+                options={searchableOptions.customers}
+                value={formData.customerId}
+                onChange={value => setFormData(f => ({ ...f, customerId: Number(value) }))}
+                placeholder="انتخاب یا جستجوی مشتری..."
+                disabled={isReadOnly}
+              />
             </div>
             <div>
-              <label htmlFor="assignedTo" className={labelClass}>کاربر مسئول</label>
-              <select id="assignedTo" name="assignedTo" value={formData.assignedTo} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
-                <option value="">هیچکس</option>
-                {users.map(u => <option key={u.id} value={u.username}>{`${u.firstName} ${u.lastName}`}</option>)}
-              </select>
+              <label htmlFor="assignedToUsername" className={labelClass}>کاربر مسئول</label>
+              <SearchableSelect
+                options={searchableOptions.users}
+                value={formData.assignedToUsername}
+                onChange={value => setFormData(f => ({ ...f, assignedToUsername: String(value) }))}
+                placeholder="انتخاب یا جستجوی کاربر..."
+                disabled={isReadOnly}
+              />
             </div>
           </div>
           
@@ -190,7 +204,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             <textarea id="description" name="description" value={formData.description} onChange={handleChange} className={textareaClass} disabled={isReadOnly}></textarea>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-6">
             <div>
               <label htmlFor="status" className={labelClass}>وضعیت</label>
               <select id="status" name="status" value={formData.status} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
@@ -205,9 +219,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             </div>
             <div>
               <label htmlFor="type" className={labelClass}>نوع مشکل</label>
-              <select id="type" name="type" value={formData.type} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
-                {ticketTypeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+               <SearchableSelect
+                options={searchableOptions.types}
+                value={formData.type}
+                onChange={value => setFormData(f => ({ ...f, type: value as TicketType }))}
+                placeholder="انتخاب یا جستجوی نوع..."
+                disabled={isReadOnly}
+              />
             </div>
             <div>
               <label htmlFor="channel" className={labelClass}>کانال ورودی</label>
@@ -251,7 +269,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                )}
           </div>
           
-          {(currentUser.role === 'مدیر' || isLead) && ticketHistory.length > 0 && (
+          {ticketHistory.length > 0 && (
              <div>
                 <label className={labelClass}>تاریخچه ارجاعات</label>
                 <ReferralHistoryTimeline history={ticketHistory} users={users} />

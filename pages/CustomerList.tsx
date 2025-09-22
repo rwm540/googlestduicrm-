@@ -6,6 +6,7 @@ import { PlusIcon } from '../components/icons/PlusIcon';
 import Pagination from '../components/Pagination';
 import { toPersianDigits } from '../utils/dateFormatter';
 import { TrashIcon } from '../components/icons/TrashIcon';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface CustomerListProps {
   customers: Customer[];
@@ -23,6 +24,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  
+  // State for confirmation modal
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [itemsToDelete, setItemsToDelete] = useState<number[] | null>(null);
 
   const handleOpenModal = (customer: Customer | null = null) => {
     setEditingCustomer(customer);
@@ -37,6 +42,21 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
   const handleSaveCustomer = (customerData: Customer | Omit<Customer, 'id'>) => {
     onSave(customerData);
     handleCloseModal();
+  };
+  
+  const handleCloseConfirmation = () => {
+    setItemToDelete(null);
+    setItemsToDelete(null);
+  };
+  
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      onDelete(itemToDelete);
+    } else if (itemsToDelete) {
+      onDeleteMany(itemsToDelete);
+      setSelectedIds([]);
+    }
+    handleCloseConfirmation();
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,13 +98,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
     }
   };
 
-  const handleDeleteSelected = () => {
-    if (window.confirm(`آیا از حذف ${toPersianDigits(selectedIds.length)} مشتری انتخاب شده اطمینان دارید؟`)) {
-      onDeleteMany(selectedIds);
-      setSelectedIds([]);
-    }
-  };
-
   const allOnPageSelected = paginatedCustomers.length > 0 && paginatedCustomers.every(c => selectedIds.includes(c.id));
 
   return (
@@ -117,7 +130,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
                 />
                  {currentUser.role === 'مدیر' && selectedIds.length > 0 && (
                   <button
-                    onClick={handleDeleteSelected}
+                    onClick={() => setItemsToDelete(selectedIds)}
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-sm whitespace-nowrap"
                   >
                     <TrashIcon />
@@ -138,7 +151,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
             <CustomerTable 
               customers={paginatedCustomers} 
               onEdit={handleOpenModal} 
-              onDelete={onDelete}
+              onDelete={(customerId) => setItemToDelete(customerId)}
               selectedIds={selectedIds}
               onToggleSelect={handleToggleSelect}
               onToggleSelectAll={handleToggleSelectAll}
@@ -160,6 +173,14 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
           onSave={handleSaveCustomer}
           customer={editingCustomer}
           customers={customers}
+        />
+
+        <ConfirmationModal
+          isOpen={!!itemToDelete || !!itemsToDelete}
+          onClose={handleCloseConfirmation}
+          onConfirm={handleConfirmDelete}
+          title="تایید حذف"
+          message={itemToDelete ? `آیا از حذف این مشتری اطمینان دارید؟` : `آیا از حذف ${toPersianDigits(itemsToDelete?.length || 0)} مشتری انتخاب شده اطمینان دارید؟`}
         />
       </main>
     </div>
