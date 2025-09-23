@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { User } from '../types';
@@ -12,6 +13,11 @@ interface AnalysisResult {
   score: number;
   analysis: string;
 }
+
+// Initialize the Google GenAI client once outside of the component
+// This improves performance by avoiding re-initialization on every render
+// and uses the environment variable for the API key as required.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const toPersianDigits = (n: string | number): string => {
   if (n === undefined || n === null) return '';
@@ -53,8 +59,6 @@ const GeminiAnalysis: React.FC<GeminiAnalysisProps> = ({ users }) => {
     setAnalysisResults(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: 'AIzaSyA0AMiqSNm1OfVvittVPxZtAf9zyPOX92I' });
-
       // 1. Data Preparation
       const totalUsers = users.length;
       // FIX: Corrected filter conditions to find users by role, and fixed a typo.
