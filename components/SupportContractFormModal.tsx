@@ -4,8 +4,9 @@ import Modal from './Modal';
 import DatePicker from './DatePicker';
 import { getPurchaseContractStatusByDate } from '../utils/dateFormatter';
 import SearchableSelect from './SearchableSelect';
+import jalaali from 'jalaali-js';
 
-declare const jalaali: any;
+// declare const jalaali: any;
 
 interface SupportContractFormModalProps {
   isOpen: boolean;

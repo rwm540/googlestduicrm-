@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import jalaali from 'jalaali-js';
 
-declare const jalaali: any;
+// declare const jalaali: any;
 
 interface DatePickerProps {
   value: string;

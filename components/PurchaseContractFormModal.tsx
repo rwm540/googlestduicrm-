@@ -6,8 +6,9 @@ import { FileUploadIcon } from './icons/FileUploadIcon';
 import Alert from './Alert';
 import { getPurchaseContractStatusByDate, formatCurrency, convertPersianToEnglish } from '../utils/dateFormatter';
 import SearchableSelect from './SearchableSelect';
+import jalaali from 'jalaali-js';
 
-declare const jalaali: any;
+// declare const jalaali: any;
 
 interface PurchaseContractFormModalProps {
   isOpen: boolean;

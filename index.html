@@ -7,9 +7,6 @@
     <meta name="theme-color" content="#0891b2">
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- jalaali-js for date calculations -->
-    <script src="https://cdn.jsdelivr.net/npm/jalaali-js/dist/jalaali.js"></script>
-    
     <style>
       /* A beautiful and modern Persian font */
       @import url('https://cdn.font-face.ir/css/sahel.css');
@@ -76,15 +73,17 @@
         }
       } 
     </style>
-    <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@18.3.1/",
-    "react/": "https://aistudiocdn.com/react@18.3.1/",
-    "react": "https://aistudiocdn.com/react@18.3.1",
-    "@google/genai": "https://esm.run/@google/genai",
-    "process": "https://aistudiocdn.com/process@^0.11.10",
-    "axios": "https://esm.run/axios"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.20.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "jalaali-js": "https://aistudiocdn.com/jalaali-js@^1.2.8",
+    "axios": "https://aistudiocdn.com/axios@^1.12.2",
+    "vite": "https://aistudiocdn.com/vite@^7.1.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.3"
   }
 }
 </script>
@@ -92,6 +91,6 @@
 <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>

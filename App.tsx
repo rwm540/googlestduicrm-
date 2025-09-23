@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, AttendanceRecord, LeaveRequest, Mission, AttendanceType, LeaveRequestStatus } from './types';
 import api from './src/api';
@@ -83,6 +84,35 @@ const App: React.FC = () => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
 
+  // Session management: Check for a valid session on initial load
+  useEffect(() => {
+    const checkSession = () => {
+        try {
+            const sessionDataString = localStorage.getItem('crm_session');
+            if (sessionDataString) {
+                const { user, loginTimestamp } = JSON.parse(sessionDataString);
+                const threeDaysInMillis = 3 * 24 * 60 * 60 * 1000;
+                
+                // Check if session is older than 3 days
+                if (Date.now() - loginTimestamp < threeDaysInMillis) {
+                    setCurrentUser(user);
+                } else {
+                    // Session expired, clear it
+                    localStorage.removeItem('crm_session');
+                }
+            }
+        } catch (error) {
+            console.error("Failed to parse session data from localStorage", error);
+            // Clear corrupted session data
+            localStorage.removeItem('crm_session');
+        } finally {
+            // Finished checking session, hide main loader
+            setIsLoading(false);
+        }
+    };
+    checkSession();
+  }, []); // Empty dependency array ensures this runs only once on mount
+
    useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
@@ -140,14 +170,12 @@ const App: React.FC = () => {
     }
   }, [currentUser]);
 
+  // Fetch all data when a user logs in (either via session or form)
   useEffect(() => {
     if (currentUser) {
         fetchAllData();
     }
-    if (isLoading) {
-        setIsLoading(false);
-    }
-  }, [currentUser, fetchAllData, isLoading]);
+  }, [currentUser, fetchAllData]);
 
 
   const handleLogin = async (username: string, password: string): Promise<boolean> => {
@@ -156,6 +184,14 @@ const App: React.FC = () => {
       const { data, status } = await api.get(`/users?username=eq.${username}&password=eq.${password}&select=*`);
       if (status === 200 && data && data.length > 0) {
         const loggedInUser = convertKeysToCamelCase(data[0]);
+        
+        // Create and store session data for 3 days
+        const sessionData = {
+            user: loggedInUser,
+            loginTimestamp: Date.now()
+        };
+        localStorage.setItem('crm_session', JSON.stringify(sessionData));
+
         setCurrentUser(loggedInUser);
         return true;
       }
@@ -169,6 +205,8 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // Clear session from localStorage on logout
+    localStorage.removeItem('crm_session');
     setCurrentUser(null);
     setActivePage('dashboard');
   };
@@ -350,7 +388,8 @@ const App: React.FC = () => {
 
   const renderPage = useCallback(() => {
     if (!currentUser) return null;
-    const pageComponents: { [key in MenuItemId]?: JSX.Element } = {
+    // FIX: Changed JSX.Element to React.ReactElement to resolve "Cannot find namespace 'JSX'" error.
+    const pageComponents: { [key in MenuItemId]?: React.ReactElement } = {
         'dashboard': <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />,
         'users': <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteManyUsers} currentUser={currentUser} />,
         'customers': <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteManyCustomers} currentUser={currentUser} />,
@@ -373,7 +412,11 @@ const App: React.FC = () => {
   }, [activePage, currentUser, users, customers, purchaseContracts, supportContracts, tickets, referrals, attendanceRecords, leaveRequests, missions, fetchAllData]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">در حال بارگذاری...</div>;
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+            <span className="loader" style={{borderColor: '#0891b2', borderStyle: 'solid'}}></span>
+        </div>
+    );
   }
 
   if (!currentUser) {

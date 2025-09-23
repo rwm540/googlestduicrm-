@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel, Referral } from '../types';
 import Modal from './Modal';
@@ -89,12 +90,12 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files) return;
       
-      const files = Array.from(e.target.files);
       const validationErrors: string[] = [];
       const validFiles: File[] = [];
 
-      // FIX: Replaced forEach with a for...of loop to resolve type inference issues where 'file' was treated as 'unknown'.
-      for (const file of files) {
+      // FIX: Use a standard for-loop to iterate through the FileList and ensure correct type inference for 'file'.
+      for (let i = 0; i < e.target.files.length; i++) {
+        const file = e.target.files[i];
         if (!file.type.startsWith('image/')) {
           validationErrors.push(`فایل "${file.name}" یک تصویر نیست.`);
           continue;

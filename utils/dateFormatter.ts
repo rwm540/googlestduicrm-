@@ -1,5 +1,7 @@
 import { ContractStatus, SupportContractStatus } from '../types';
-declare const jalaali: any;
+import jalaali from 'jalaali-js';
+
+// declare const jalaali: any;
 
 export const toPersianDigits = (n: string | number): string => {
   if (n === undefined || n === null) return '';
