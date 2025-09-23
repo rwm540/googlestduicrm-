@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { User } from '../types';
@@ -52,7 +53,7 @@ const GeminiAnalysis: React.FC<GeminiAnalysisProps> = ({ users }) => {
     setAnalysisResults(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: 'AIzaSyA0AMiqSNm1OfVvittVPxZtAf9zyPOX92I' });
 
       // 1. Data Preparation
       const totalUsers = users.length;
