@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { User } from '../types';
@@ -17,7 +15,7 @@ interface AnalysisResult {
 // Initialize the Google GenAI client once outside of the component
 // This improves performance by avoiding re-initialization on every render
 // and uses the environment variable for the API key as required.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_API_KEY! });
 
 const toPersianDigits = (n: string | number): string => {
   if (n === undefined || n === null) return '';
