@@ -33,9 +33,9 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
     return users.filter(user => {
       if (currentAssignees.has(user.username)) return false;
 
-      // مدیر: فقط به مسئولان ارجاع می‌دهد
+      // مدیر: به مسئولان و سایر مدیران ارجاع می‌دهد
       if (currentUser.role === 'مدیر') {
-        return isLead(user.role);
+        return isLead(user.role) || user.role === 'مدیر';
       }
 
       // مسئول: به مدیر، سایر مسئولان، و کارشناسان واحد خود ارجاع می‌دهد
