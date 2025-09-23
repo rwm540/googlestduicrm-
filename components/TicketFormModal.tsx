@@ -158,13 +158,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl">
-      <form onSubmit={handleSubmit} className="flex flex-col h-[90vh]">
-        <div className="p-6 border-b flex-shrink-0">
+      <form onSubmit={handleSubmit}>
+        <div className="p-6 border-b">
           <h3 className="text-lg font-medium leading-6 text-cyan-600">{modalTitle}</h3>
            {isReadOnly && <p className="text-sm text-amber-600 mt-1">زمان ویرایش این تیکت به پایان رسیده یا تیکت اتمام یافته است و در حالت فقط-خواندنی نمایش داده می‌شود.</p>}
         </div>
 
-        <div className="flex-grow p-6 space-y-6 overflow-y-auto">
+        <div className="p-6 space-y-6">
           <Alert messages={errors} onClose={() => setErrors([])} />
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
@@ -279,7 +279,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
 
         </div>
 
-        <div className="p-4 bg-gray-50 border-t flex justify-end items-center flex-shrink-0">
+        <div className="p-4 bg-gray-50 border-t flex justify-end items-center">
             <div className="flex gap-3">
                 <button type="button" onClick={onClose} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100">
                     {isReadOnly ? 'بستن' : 'انصراف'}

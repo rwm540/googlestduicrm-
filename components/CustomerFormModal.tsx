@@ -197,7 +197,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                 <h3 className="text-lg font-medium leading-6 text-cyan-600 mb-4">
                     {customer ? 'ویرایش مشتری' : 'افزودن مشتری جدید'}
                 </h3>
-                <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
+                <form onSubmit={handleSubmit} className="space-y-6">
                     <Alert messages={errors} onClose={() => setErrors([])} />
                     {/* Section 1: General & Contact */}
                     <div>

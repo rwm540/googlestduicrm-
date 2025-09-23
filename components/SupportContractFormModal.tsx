@@ -156,7 +156,7 @@ const SupportContractFormModal: React.FC<SupportContractFormModalProps> = ({ isO
         <h3 className="text-lg font-medium leading-6 text-cyan-600 mb-4">
           {contract ? 'ویرایش قرارداد پشتیبانی' : 'افزودن قرارداد پشتیبانی'}
         </h3>
-        <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
+        <form onSubmit={handleSubmit} className="space-y-6">
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
                 <div className="lg:col-span-3">

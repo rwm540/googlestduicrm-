@@ -408,7 +408,7 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="5xl">
-      <div className="p-6 flex flex-col h-[90vh]">
+      <div className="p-6">
         <h3 className="text-xl font-medium leading-6 text-cyan-600 mb-4">
           {contract ? 'ویرایش قرارداد فروش' : 'افزودن قرارداد فروش'}
         </h3>
@@ -433,12 +433,12 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
             </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-grow overflow-hidden flex flex-col">
-            <div className="flex-grow overflow-y-auto pr-2 pb-4">
+        <form onSubmit={handleSubmit}>
+            <div className="py-4">
               <Alert messages={errors} onClose={() => setErrors([])} />
               {renderTabContent()}
             </div>
-            <div className="pt-4 flex justify-end gap-3 border-t mt-4">
+            <div className="pt-4 flex justify-end gap-3 border-t">
                 <button 
                   type="button" 
                   onClick={onClose} 

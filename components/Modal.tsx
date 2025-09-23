@@ -36,10 +36,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, size = 'md' })
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex justify-center p-4 animate-fade-in overflow-y-auto"
       aria-labelledby="modal-title"
       role="dialog"
       aria-modal="true"
+      onClick={onClose}
     >
       {/* Overlay */}
       <div 
@@ -49,7 +50,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, size = 'md' })
 
       {/* Modal content */}
       <div 
-        className={`relative z-10 w-full ${sizeClasses[size]} bg-white rounded-lg shadow-2xl border border-gray-200/80 transform animate-scale-up`}
+        className={`relative z-10 w-full ${sizeClasses[size]} bg-white rounded-lg shadow-2xl border border-gray-200/80 transform animate-scale-up my-auto`}
         onClick={(e) => e.stopPropagation()} // Prevent closing modal when clicking inside
       >
         {children}
