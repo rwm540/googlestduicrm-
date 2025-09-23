@@ -1,7 +1,6 @@
 import React from 'react';
 import DashboardStats from '../components/DashboardStats';
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral } from '../types';
-// import GeminiAnalysis from '../components/GeminiAnalysis';
 
 interface DashboardPageProps {
   users: User[];
@@ -34,15 +33,6 @@ const DashboardPage: React.FC<DashboardPageProps> = ({
           tickets={tickets}
           referrals={referrals}
         />
-
-        {/* Reports Analysis Section - Temporarily Disabled */}
-        {/*
-        <div className="mt-8">
-           <GeminiAnalysis
-              users={users}
-           />
-        </div>
-        */}
       </main>
     </div>
   );
