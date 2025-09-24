@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel, Referral } from '../types';
 import Modal from './Modal';
@@ -205,13 +204,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             <textarea id="description" name="description" value={formData.description} onChange={handleChange} className={textareaClass} disabled={isReadOnly}></textarea>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-6">
-            <div>
-              <label htmlFor="status" className={labelClass}>وضعیت</label>
-              <select id="status" name="status" value={formData.status} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
-                {(['انجام نشده', 'در حال پیگیری', 'اتمام یافته', 'ارجاع شده'] as TicketStatus[]).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
             <div>
               <label htmlFor="priority" className={labelClass}>اولویت</label>
               <select id="priority" name="priority" value={formData.priority} onChange={handleChange} className={inputClass} disabled={isReadOnly}>

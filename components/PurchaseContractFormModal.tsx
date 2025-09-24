@@ -52,7 +52,7 @@ const getInitialState = (currentUser: User): Omit<PurchaseContract, 'id'> => {
     softwareDescription: "",
     platform: "",
     networkSupport: "بله",
-    webMobileSupport: "",
+    webMobileSupport: "خیر",
     initialTraining: "",
     setupAndInstallation: "",
     technicalSupport: "",
@@ -129,6 +129,33 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
   const [formattedPrepayment, setFormattedPrepayment] = useState('');
   const [customerName, setCustomerName] = useState('');
   const salesUsers = users.filter(user => user.role.includes('فروش') || user.role.includes('مدیر'));
+  
+  const softwareNameOptions = [
+    'رستورانی',
+    'فروشگاهی',
+    'بازرگانی',
+    'زیر سیستم حقوق دستمزد',
+    'زیر سیستم بیمه',
+    'زیر سیستم کسر از حقوق',
+    'هتل و تالار',
+    'ثبت سفارش',
+    'پخش',
+    'اشتراک و بن کارت',
+    'مودیان',
+    'باشگاه مشتریان',
+    'پذیرش',
+    'زیرسیستم سفارش روزانه',
+    'زیرسیستم عملیات ارزی',
+    'زیرسیستم عملیات بودجه',
+    'زیرسیستم اسنپ مارکت',
+    'زیرسیستم پیگیری فروش',
+    'زیرسیستم فراصدر',
+    'زیرسیستم سفارشی',
+    'زیرسیستم کلوپ بازی',
+    'زیر سیستم مدیریت شعب',
+    'زیرسیستم حسابداری مدیریت',
+    'زیرسیستم ایزارهای مالیاتی',
+  ];
 
   useEffect(() => {
     if (isOpen) {
@@ -226,6 +253,9 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
     if (!formData.customerId) {
         validationErrors.push('انتخاب مشتری الزامی است.');
     }
+    if (!formData.softwareName) {
+        validationErrors.push('انتخاب نام نرم افزار الزامی است.');
+    }
     
     const isContractIdTaken = contracts.some(
         c => c.contractId.toLowerCase() === formData.contractId.toLowerCase() && c.id !== contract?.id
@@ -236,7 +266,13 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
 
     if (validationErrors.length > 0) {
         setErrors(validationErrors);
-        setActiveTab(0); // Go to the tab with the error
+        if (!formData.contractId.trim()) {
+            setActiveTab(0);
+        } else if (!formData.customerId) {
+            setActiveTab(1);
+        } else if (!formData.softwareName) {
+            setActiveTab(2);
+        }
         return;
     }
     const finalStatus = getPurchaseContractStatusByDate(formData.contractStartDate, formData.contractEndDate);
@@ -308,7 +344,14 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
         );
         case 2: return ( // فنی
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
-                <FormField label="نام نرم افزار"><input type="text" name="softwareName" value={formData.softwareName} onChange={handleChange} className={inputClass} /></FormField>
+                <FormField label="نام نرم افزار">
+                    <SearchableSelect
+                        options={softwareNameOptions.map(name => ({ value: name, label: name }))}
+                        value={formData.softwareName}
+                        onChange={value => setFormData(f => ({ ...f, softwareName: String(value) }))}
+                        placeholder="جستجو یا انتخاب نرم افزار..."
+                    />
+                </FormField>
                 <FormField label="تعداد کاربر / لایسنس"><input type="number" name="licenseCount" value={formData.licenseCount} onChange={handleChange} className={inputClass} /></FormField>
                 <div className="sm:col-span-2"><FormField label="توضیحات نرم افزار"><textarea name="softwareDescription" value={formData.softwareDescription} onChange={handleChange} className={textareaClass}></textarea></FormField></div>
                 <FormField label="سیستم عامل و بستر اجرا"><input type="text" name="platform" value={formData.platform} onChange={handleChange} className={inputClass} /></FormField>
@@ -317,7 +360,14 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
                          {(['بله', 'خیر'] as NetworkSupport[]).map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                 </FormField>
-                 <div className="sm:col-span-2"><FormField label="پشتیبانی از نسخه وب / موبایل"><input type="text" name="webMobileSupport" value={formData.webMobileSupport} onChange={handleChange} className={inputClass} /></FormField></div>
+                 <div className="sm:col-span-2">
+                    <FormField label="پشتیبانی از نسخه وب / موبایل">
+                        <select name="webMobileSupport" value={formData.webMobileSupport} onChange={handleChange} className={inputClass}>
+                            <option value="بله">بله</option>
+                            <option value="خیر">خیر</option>
+                        </select>
+                    </FormField>
+                 </div>
             </div>
         );
         case 3: return ( // خدمات

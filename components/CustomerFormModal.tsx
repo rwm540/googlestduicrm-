@@ -5,6 +5,7 @@ import Modal from './Modal';
 import DatePicker from './DatePicker';
 import Alert from './Alert';
 import jalaali from 'jalaali-js';
+import { formatCurrency, convertPersianToEnglish } from '../utils/dateFormatter';
 
 // Declare globals loaded from CDN
 // declare const jalaali: any;
@@ -60,6 +61,7 @@ const formatDate = (date: { jy: number; jm: number; jd: number }) => {
 
 const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, onSave, customer, customers }) => {
     const [formData, setFormData] = useState(getInitialState());
+    const [formattedRemainingCredit, setFormattedRemainingCredit] = useState('');
     const [errors, setErrors] = useState<string[]>([]);
 
     useEffect(() => {
@@ -72,21 +74,25 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                     emails: [...(customer.emails || []), ''],
                     phone: [...(customer.phone || []), ''],
                 });
+                setFormattedRemainingCredit(formatCurrency(customer.remainingCredit));
             } else { // Adding a new customer, set defaults
                 const todayObj = jalaali.toJalaali(new Date());
                 const oneYearFromNowObj = jalaali.toJalaali(new Date(new Date().setFullYear(new Date().getFullYear() + 1)));
                 
-                setFormData({
+                const initialState = {
                     ...getInitialState(),
                     purchaseDate: formatDate(todayObj),
                     supportStartDate: formatDate(todayObj),
                     supportEndDate: formatDate(oneYearFromNowObj),
-                });
+                };
+                setFormData(initialState);
+                setFormattedRemainingCredit(formatCurrency(initialState.remainingCredit));
             }
         } else {
             // Reset form state when modal closes
             setTimeout(() => {
                 setFormData(getInitialState());
+                setFormattedRemainingCredit('');
                 setErrors([]);
             }, 300); // Wait for animation
         }
@@ -97,6 +103,18 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
         setFormData(prev => ({ ...prev, [name]: value }));
     };
     
+    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rawValue = e.target.value;
+        const englishValue = convertPersianToEnglish(rawValue);
+        const numericString = englishValue.replace(/[^0-9]/g, '');
+        const numericValue = numericString ? parseInt(numericString, 10) : 0;
+        
+        setFormData(prev => ({ ...prev, remainingCredit: numericValue }));
+        
+        const formatted = numericString ? formatCurrency(numericValue) : '';
+        setFormattedRemainingCredit(formatted);
+    };
+
     const handleDateChange = (field: keyof Omit<Customer, 'id'>, date: string) => {
         setFormData(prev => ({ ...prev, [field]: date }));
     };
@@ -296,7 +314,16 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                                 <input type="text" name="iban" id="iban" value={formData.iban} onChange={handleChange} className={inputClass} />
                             </FormField>
                              <FormField label="مانده اعتبار (ریال)" id="remainingCredit">
-                                <input type="number" name="remainingCredit" id="remainingCredit" value={formData.remainingCredit} onChange={handleChange} className={inputClass} />
+                                <input
+                                    type="text"
+                                    name="remainingCredit"
+                                    id="remainingCredit"
+                                    value={formattedRemainingCredit}
+                                    onChange={handleAmountChange}
+                                    className={`${inputClass} font-mono`}
+                                    inputMode="numeric"
+                                    dir="ltr"
+                                />
                             </FormField>
                             <div className="lg:col-span-2">
                                 <label className={labelClass}>روش‌های پرداخت</label>
