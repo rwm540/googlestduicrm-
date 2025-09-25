@@ -3,6 +3,7 @@ import { PurchaseContract, ContractStatus, User, Customer } from '../types';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { getPurchaseContractStatusByDate, toPersianDigits, formatCurrency } from '../utils/dateFormatter';
+import { PaperClipIcon } from './icons/PaperClipIcon';
 
 interface PurchaseContractTableProps {
   contracts: PurchaseContract[];
@@ -40,12 +41,23 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
     );
   }
 
+  const attachmentFields: (keyof PurchaseContract)[] = ['signedContractPdf', 'salesInvoice', 'deliverySchedule', 'moduleList'];
+  const attachmentTitles: Record<string, string> = {
+      signedContractPdf: 'PDF قرارداد',
+      salesInvoice: 'فاکتور فروش',
+      deliverySchedule: 'زمانبندی تحویل',
+      moduleList: 'لیست ماژول ها',
+  };
+
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
         {/* Mobile & Tablet Card View (for screens smaller than lg) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {contracts.map(contract => {
             const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
+            const attachments = attachmentFields.map(field => ({ field, url: contract[field] })).filter(a => typeof a.url === 'string' && a.url);
+
             return (
               <div key={contract.id} className="bg-white p-4 space-y-4 relative">
                   <div className="absolute top-4 left-4 z-10">
@@ -69,6 +81,16 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                   <div className="text-sm text-gray-600 space-y-2 pt-3 border-t border-gray-100">
                       <p><span className="font-semibold">نوع قرارداد:</span> {contract.contractType}</p>
                       <p><span className="font-semibold">مبلغ کل:</span> <span className="font-mono">{formatCurrency(contract.totalAmount)}</span> ریال</p>
+                      {attachments.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold">پیوست‌ها:</span>
+                            {attachments.map(att => (
+                                <a key={att.field} href={att.url as string} target="_blank" rel="noopener noreferrer" title={attachmentTitles[att.field]} className="text-gray-400 hover:text-cyan-600">
+                                    <PaperClipIcon />
+                                </a>
+                            ))}
+                        </div>
+                      )}
                   </div>
                   <div className="flex items-center justify-end pt-2">
                       <div className="flex items-center gap-2">
@@ -113,12 +135,14 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
               <th scope="col" className="px-6 py-4">نوع</th>
               <th scope="col" className="px-6 py-4">مبلغ (ریال)</th>
               <th scope="col" className="px-6 py-4">وضعیت</th>
+              <th scope="col" className="px-6 py-4">پیوست‌ها</th>
               <th scope="col" className="px-6 py-4 text-left">اقدامات</th>
             </tr>
           </thead>
           <tbody>
             {contracts.map(contract => {
               const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
+              const attachments = attachmentFields.map(field => ({ field, url: contract[field] })).filter(a => typeof a.url === 'string' && a.url);
               return (
               <tr key={contract.id} className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200">
                 <td className="w-4 p-4">
@@ -138,6 +162,15 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                   <span className={`px-2 py-1 text-xs font-bold rounded-full ${statusStyles[displayStatus]}`}>
                     {displayStatus}
                   </span>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    {attachments.map(att => (
+                        <a key={att.field} href={att.url as string} target="_blank" rel="noopener noreferrer" title={attachmentTitles[att.field]} className="text-gray-400 hover:text-cyan-600">
+                            <PaperClipIcon />
+                        </a>
+                    ))}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-left">
                   <div className="flex items-center justify-end gap-2">

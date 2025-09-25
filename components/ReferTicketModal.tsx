@@ -12,48 +12,60 @@ interface ReferTicketModalProps {
   currentUser: User;
 }
 
-const isLead = (role: UserRole) => role.startsWith('مسئول');
-const isSpecialist = (role: UserRole) => role.startsWith('کارشناس');
-
-const getDepartment = (role: UserRole): string => {
-    if (role.includes('پشتیبان')) return 'پشتیبان';
-    if (role.includes('برنامه نویس')) return 'برنامه نویس';
-    if (role.includes('فروش')) return 'فروش';
-    return '';
-};
-
 const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, onRefer, tickets, users, currentUser }) => {
   const [newAssignee, setNewAssignee] = useState('');
 
+  const getDepartment = (role: UserRole): string | null => {
+      if (role.startsWith('مسئول ')) {
+          return role.replace('مسئول ', '');
+      }
+      if (role.startsWith('کارشناس ')) {
+          return role.replace('کارشناس ', '');
+      }
+      return null;
+  };
+
   const availableUsers = useMemo(() => {
     if (!isOpen || !tickets) return [];
-    
+
+    // Get users that are not the current user or already assigned to the ticket(s)
     const currentAssignees = new Set(tickets.map(t => t.assignedToUsername));
+    const potentialUsers = users.filter(user =>
+        !currentAssignees.has(user.username) && user.username !== currentUser.username
+    );
 
-    return users.filter(user => {
-      if (currentAssignees.has(user.username)) return false;
+    const { role } = currentUser;
+    const currentUserDepartment = getDepartment(role);
 
-      // مدیر: به مسئولان و سایر مدیران ارجاع می‌دهد
-      if (currentUser.role === 'مدیر') {
-        return isLead(user.role) || user.role === 'مدیر';
-      }
+    // Rule: مدیر (Manager) -> to any مسئول (Lead) or another مدیر (Manager)
+    if (role === 'مدیر') {
+      return potentialUsers.filter(user => user.role.startsWith('مسئول ') || user.role === 'مدیر');
+    }
 
-      // مسئول: به مدیر، سایر مسئولان، و کارشناسان واحد خود ارجاع می‌دهد
-      if (isLead(currentUser.role)) {
-        const currentUserDept = getDepartment(currentUser.role);
-        const targetUserDept = getDepartment(user.role);
-        return user.role === 'مدیر' || isLead(user.role) || (isSpecialist(user.role) && currentUserDept === targetUserDept);
-      }
+    // Rule: مسئول (Lead) -> to a کارشناس in their own department, another مسئول, or a مدیر
+    if (role.startsWith('مسئول ')) {
+      if (!currentUserDepartment) return []; // Should always have a department
+      return potentialUsers.filter(user => 
+        user.role === `کارشناس ${currentUserDepartment}` || // Can refer to specialist in their dept
+        user.role.startsWith('مسئول ') || 
+        user.role === 'مدیر'
+      );
+    }
 
-      // کارشناس: فقط به مسئول مستقیم خود ارجاع می‌دهد
-      if (isSpecialist(currentUser.role)) {
-        const currentUserDept = getDepartment(currentUser.role);
-        const leadRoleForDept = `مسئول ${currentUserDept}` as UserRole;
-        return user.role === leadRoleForDept;
-      }
-      
-      return false; // سایر نقش‌ها قابلیت ارجاع ندارند
-    });
+    // Rule: کارشناس (Specialist) -> to another کارشناس (Specialist) in their department, or their own مسئول (Lead)
+    if (role.startsWith('کارشناس ')) {
+      if (!currentUserDepartment) return []; // Should always have a department
+      return potentialUsers.filter(user => {
+        // Is another specialist in the same department
+        const isPeerSpecialist = user.role === `کارشناس ${currentUserDepartment}`;
+        // Is the lead of the same department
+        const isDepartmentLead = user.role === `مسئول ${currentUserDepartment}`;
+        return isPeerSpecialist || isDepartmentLead;
+      });
+    }
+
+    // Default: No one else can refer
+    return [];
   }, [isOpen, tickets, users, currentUser]);
   
   useEffect(() => {

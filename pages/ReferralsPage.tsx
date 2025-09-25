@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo } from 'react';
 import { User, Referral, Customer, Ticket, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -21,11 +22,12 @@ interface ReferralsPageProps {
   onSave: (ticket: Ticket | Omit<Ticket, 'id'>, isFromReferral: boolean) => void;
   onReferTicket: (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => void;
   onToggleWork: (ticketId: number) => void;
+  onExtendEditTime: (ticketId: number) => void;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, users, customers, onSave, onReferTicket, onToggleWork, supportContracts }) => {
+const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, users, customers, onSave, onReferTicket, onToggleWork, supportContracts, onExtendEditTime }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -208,6 +210,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
           onEdit={handleOpenModal}
           onRefer={handleOpenReferModal}
           onToggleWork={(ticketId) => onToggleWork(ticketId)}
+          onExtendEditTime={onExtendEditTime}
           isReferralTable={true}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}

@@ -208,7 +208,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             <div>
               <label htmlFor="priority" className={labelClass}>اولویت</label>
               <select id="priority" name="priority" value={formData.priority} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
-                {(['کم', 'متوسط', 'ضطراری'] as TicketPriority[]).map(p => <option key={p} value={p}>{p}</option>)}
+                {(['کم', 'متوسط', 'اضطراری'] as TicketPriority[]).map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div>

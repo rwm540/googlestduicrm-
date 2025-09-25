@@ -3,8 +3,8 @@
 // User Management
 // FIX: Added HR menu item IDs to integrate new pages.
 export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals' | 'attendance' | 'leave' | 'missions';
-// FIX: Corrected typo 'کارشناс' to 'کارشناس'
-export type UserRole = 'مدیر' | 'مسئول فروش' | 'مسئول پشتیبان' | 'مسئول برنامه نویس' | 'کارشناس فروش' | 'کارشناس پشتیبانی' | 'کارشناس برنامه نویس';
+// FIX: Standardized 'مسئول پشتیبان' to 'مسئول پشتیبانی' for consistency with specialist roles.
+export type UserRole = 'مدیر' | 'مسئول فروش' | 'مسئول پشتیبانی' | 'مسئول برنامه نویس' | 'کارشناس فروش' | 'کارشناس پشتیبانی' | 'کارشناس برنامه نویس';
 
 export interface User {
   id: number;
@@ -137,7 +137,7 @@ export interface SupportContract {
 
 // Ticket & Referral Management
 export type TicketStatus = 'انجام نشده' | 'در حال پیگیری' | 'اتمام یافته' | 'ارجاع شده';
-export type TicketPriority = 'کم' | 'متوسط' | 'ضطراری';
+export type TicketPriority = 'کم' | 'متوسط' | 'اضطراری';
 export type TicketType = 'نصب' | 'اپدیت' | 'اموزش' | 'طراحی و چاپ' | 'تبدیل اطلاعات' | 'رفع اشکال' | 'راه اندازی' | 'مشکل برنامه نویسی' | 'سایر' | 'فراصدر' | 'گزارشات' | 'تنظیمات نرم افزاری' | 'مجوزدهی' | 'صندوق' | 'پوز' | 'ترازو' | 'انبار' | 'چک' | 'تعریف' | 'سیستم' | 'مودیان' | 'بیمه' | 'حقوق دستمزد' | 'بکاپ' | 'اوند' | 'کیوسک' | 'افتتاحیه' | 'اختتامیه' | 'تغییر مسیر' | 'پرینتر' | 'کارتخوان' | 'sql' | 'پنل پیامکی' | 'کلاینت' | 'صورتحساب' | 'مغایرت گیری' | 'ویندوزی' | 'چاپ' | 'پایان سال' | 'دمو' | 'خطا' | 'درخواست' | 'مشکل';
 export type TicketChannel = 'تلفن' | 'ایمیل' | 'پورتال' | 'حضوری';
 

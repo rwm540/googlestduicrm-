@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { Ticket, TicketStatus, TicketPriority, Customer, User } from '../types';
 import { ClockIcon } from './icons/ClockIcon';
@@ -17,6 +15,8 @@ interface TicketTableProps {
   onRefer: (ticket: Ticket) => void;
   onToggleWork: (ticketId: number) => void;
   onDelete?: (ticketId: number) => void;
+  onReopen?: (ticketId: number) => void;
+  onExtendEditTime: (ticketId: number) => void;
   isReferralTable: boolean;
   emptyMessage?: string;
   selectedIds: number[];
@@ -35,7 +35,7 @@ const statusStyles: { [key in TicketStatus]: { icon: React.ReactNode, text: stri
 const priorityStyles: { [key in TicketPriority]: string } = {
   'کم': 'border-gray-400 text-gray-500',
   'متوسط': 'border-blue-500 text-blue-600',
-  'ضطراری': 'border-red-500 text-red-600',
+  'اضطراری': 'border-red-500 text-red-600',
 };
 
 const toPersianDigits = (n: string | number): string => {
@@ -44,7 +44,7 @@ const toPersianDigits = (n: string | number): string => {
   return String(n).replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
 };
 
-const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, onDelete, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
+const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, onDelete, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser, onReopen, onExtendEditTime }) => {
   
   const allOnPageSelected = tickets.length > 0 && tickets.every(t => selectedIds.includes(t.id));
   
@@ -133,7 +133,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                 </td>
                 <td className="px-6 py-4 cursor-pointer" onClick={() => onEdit(ticket)}>{getAssigneeName(ticket.assignedToUsername)}</td>
                 <td className="px-6 py-4 text-left">
-                  <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} />
+                  <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} onReopen={onReopen} onExtendEditTime={onExtendEditTime} />
                 </td>
               </tr>
             ))}
@@ -178,7 +178,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                 </div>
             </div>
             <div className="border-t pt-2 mt-3">
-                 <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} />
+                 <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} onReopen={onReopen} onExtendEditTime={onExtendEditTime} />
             </div>
           </div>
         ))}

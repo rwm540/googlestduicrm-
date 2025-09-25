@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, AttendanceRecord, LeaveRequest, Mission, AttendanceType, LeaveRequestStatus } from './types';
 import api from './src/api';
@@ -289,6 +288,10 @@ const App: React.FC = () => {
   const handleReferTicket = async (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => {
     setIsProcessing(true);
     try {
+        // Find the full ticket object from state to check its status and work session
+        const ticketToRefer = tickets.find(t => t.id === ticketId) || referrals.find(r => r.ticket.id === ticketId)?.ticket;
+        if (!ticketToRefer) throw new Error("تیکت برای ارجاع یافت نشد");
+
         // 1. Create referral record
         await api.post('/referrals', {
             ticket_id: ticketId,
@@ -297,15 +300,32 @@ const App: React.FC = () => {
             referral_date: new Date().toISOString()
         }, { headers: { 'Prefer': 'return=minimal' } });
         
-        // 2. Update ticket status and assignee
-        await api.patch(`/tickets?id=eq.${ticketId}`, {
+        // 2. Prepare payload for ticket update. Always set status to 'referred'.
+        const updatePayload: any = {
             assigned_to_username: referredToUsername,
             status: 'ارجاع شده',
             last_update_date: new Date().toISOString()
-        });
+        };
+
+        // 3. If ticket was in progress, stop the timer session for the previous user.
+        if (ticketToRefer.status === 'در حال پیگیری' && ticketToRefer.workSessionStartedAt) {
+            const sessionStart = new Date(ticketToRefer.workSessionStartedAt).getTime();
+            const now = new Date().getTime();
+            const duration = Math.floor((now - sessionStart) / 1000);
+            
+            updatePayload.work_session_started_at = null;
+            updatePayload.total_work_duration = (ticketToRefer.totalWorkDuration || 0) + duration;
+        }
+
+        // 4. Update ticket
+        await api.patch(`/tickets?id=eq.${ticketId}`, updatePayload);
         
         await fetchAllData();
-    } catch (error: any) { console.error("خطا در ارجاع تیکت:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
+    } catch (error: any) { 
+        console.error("خطا در ارجاع تیکت:", error.response?.data?.message || error.message); 
+    } finally { 
+        setIsProcessing(false); 
+    }
   };
 
   const handleToggleWork = async (ticketId: number) => {
@@ -381,6 +401,38 @@ const App: React.FC = () => {
     try { await api.delete(`/support_contracts?id=in.(${contractIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف قراردادهای پشتیبانی:", error); } finally { setIsProcessing(false); }
   };
   
+  const handleReopenTicket = async (ticketId: number) => {
+    setIsProcessing(true);
+    try {
+      await api.patch(`/tickets?id=eq.${ticketId}`, {
+        status: 'انجام نشده', // Reopen to 'Not Done' status
+        last_update_date: new Date().toISOString(),
+        work_session_started_at: null, // Reset any previous work session
+      });
+      await fetchAllData();
+    } catch (error: any) {
+      console.error("خطا در بازگشایی تیکت:", error.response?.data?.message || error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleExtendTicketEditTime = async (ticketId: number) => {
+    setIsProcessing(true);
+    try {
+      const newEditableUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      await api.patch(`/tickets?id=eq.${ticketId}`, {
+        editable_until: newEditableUntil,
+        last_update_date: new Date().toISOString(),
+      });
+      await fetchAllData();
+    } catch (error: any) {
+      console.error("خطا در تمدید زمان ویرایش تیکت:", error.response?.data?.message || error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleRecordAttendance = (type: AttendanceType) => { /* Mock */ };
   const handleSaveLeaveRequest = (request: LeaveRequest | Omit<LeaveRequest, 'id'>) => { /* Mock */ };
   const handleLeaveStatusChange = (requestId: number, newStatus: LeaveRequestStatus) => { /* Mock */ };
@@ -401,9 +453,9 @@ const App: React.FC = () => {
                 </main>
             </div>
         ),
-        'tickets': <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} currentUser={currentUser} />,
-        'referrals': <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} />,
-        'reports': <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} />,
+        'tickets': <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} currentUser={currentUser} onReopenTicket={handleReopenTicket} onExtendEditTime={handleExtendTicketEditTime} />,
+        'referrals': <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onExtendEditTime={handleExtendTicketEditTime} />,
+        'reports': <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} currentUser={currentUser} />,
         'attendance': <AttendancePage currentUser={currentUser} records={attendanceRecords} onRecord={handleRecordAttendance} />,
         'leave': <LeavePage currentUser={currentUser} leaveRequests={leaveRequests} users={users} onSave={handleSaveLeaveRequest} onStatusChange={handleLeaveStatusChange} />,
         'missions': <MissionsPage currentUser={currentUser} missions={missions} users={users} onSave={handleSaveMission} />,

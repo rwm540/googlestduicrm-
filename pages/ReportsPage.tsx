@@ -1,9 +1,8 @@
-
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { Customer, PurchaseContract, SupportContract, Ticket, User, TicketStatus, TicketPriority, ContractStatus, CustomerStatus } from '../types';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Customer, PurchaseContract, SupportContract, Ticket, User, TicketStatus, TicketPriority, ContractStatus, CustomerStatus, UserRole } from '../types';
 import DatePicker from '../components/DatePicker';
 import Pagination from '../components/Pagination';
+import SearchableSelect from '../components/SearchableSelect';
 
 type ReportType = 'customers' | 'contracts' | 'tickets';
 
@@ -13,18 +12,22 @@ interface ReportsPageProps {
   purchaseContracts: PurchaseContract[];
   supportContracts: SupportContract[];
   tickets: Ticket[];
+  currentUser: User;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseContracts, supportContracts, tickets }) => {
+const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseContracts, supportContracts, tickets, currentUser }) => {
     const [reportType, setReportType] = useState<ReportType>('customers');
-    const [filters, setFilters] = useState({
-        startDate: '',
-        endDate: '',
-        status: 'all',
-        priority: 'all',
-        assignedTo: 'all',
+    const [filters, setFilters] = useState(() => {
+        const initialAssignedTo = currentUser.role.startsWith('کارشناس') ? currentUser.username : 'all';
+        return {
+            startDate: '',
+            endDate: '',
+            status: 'all',
+            priority: 'all',
+            assignedTo: initialAssignedTo,
+        };
     });
     const [reportData, setReportData] = useState<any[]>([]);
     const [reportColumns, setReportColumns] = useState<string[]>([]);
@@ -37,15 +40,99 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
         return String(n).replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
     };
     
+    const getUserFullName = (username: string | null): string => {
+        if (!username) return '---';
+        const user = users.find(u => u.username === username);
+        return user ? `${user.firstName} ${user.lastName}` : username;
+    };
+
+    const assigneeFilterOptions = useMemo(() => {
+        if (!currentUser) return [];
+        if (currentUser.role === 'مدیر') {
+            return users;
+        }
+        if (currentUser.role.startsWith('مسئول')) {
+            const departmentName = currentUser.role.replace('مسئول ', '');
+            const specialistRole = `کارشناس ${departmentName}` as UserRole;
+            const departmentSpecialists = users.filter(u => u.role === specialistRole);
+            return [currentUser, ...departmentSpecialists];
+        }
+        return [currentUser];
+    }, [currentUser, users]);
+    
+    const searchableAssigneeOptions = useMemo(() => {
+        const isSpecialist = currentUser.role.startsWith('کارشناس');
+        const userOptions = assigneeFilterOptions.map(u => ({
+            value: u.username,
+            label: `${u.firstName} ${u.lastName}`
+        }));
+        
+        if (isSpecialist) {
+            return userOptions;
+        }
+        
+        return [{ value: 'all', label: 'همه' }, ...userOptions];
+    }, [assigneeFilterOptions, currentUser.role]);
+
+    const accessibleData = useMemo(() => {
+        if (!currentUser || currentUser.role === 'مدیر') {
+            return { customers, purchaseContracts, supportContracts, tickets };
+        }
+
+        let accessibleUsernames: string[] = [];
+        if (currentUser.role.startsWith('مسئول')) { // Lead
+            const departmentName = currentUser.role.replace('مسئول ', '');
+            const specialistRole = `کارشناس ${departmentName}` as UserRole;
+            const departmentSpecialists = users
+                .filter(u => u.role === specialistRole)
+                .map(u => u.username);
+            accessibleUsernames = [currentUser.username, ...departmentSpecialists];
+        } else { // Specialist
+            accessibleUsernames = [currentUser.username];
+        }
+
+        const accessibleTickets = tickets.filter(t =>
+            t.assignedToUsername && accessibleUsernames.includes(t.assignedToUsername)
+        );
+
+        const accessiblePurchaseContracts = purchaseContracts.filter(pc =>
+            (pc.salespersonUsername && accessibleUsernames.includes(pc.salespersonUsername)) ||
+            (pc.crmResponsibleUsername && accessibleUsernames.includes(pc.crmResponsibleUsername))
+        );
+
+        const accessibleCustomerIds = new Set<number>();
+        accessibleTickets.forEach(t => { if (t.customerId) accessibleCustomerIds.add(t.customerId); });
+        accessiblePurchaseContracts.forEach(pc => { if (pc.customerId) accessibleCustomerIds.add(pc.customerId); });
+
+        const accessibleCustomers = customers.filter(c => accessibleCustomerIds.has(c.id));
+
+        const accessibleSupportContracts = supportContracts.filter(sc =>
+            sc.customerId && accessibleCustomerIds.has(sc.customerId)
+        );
+
+        return {
+            customers: accessibleCustomers,
+            purchaseContracts: accessiblePurchaseContracts,
+            supportContracts: accessibleSupportContracts,
+            tickets: accessibleTickets,
+        };
+    }, [currentUser, users, customers, purchaseContracts, supportContracts, tickets]);
+    
     const handleGenerateReport = useCallback(() => {
-        setCurrentPage(1); // Reset page on new report generation
+        setCurrentPage(1);
         let data: any[] = [];
         let columns: string[] = [];
 
+        const {
+            customers: reportCustomers,
+            purchaseContracts: reportPurchaseContracts,
+            supportContracts: reportSupportContracts,
+            tickets: reportTickets
+        } = accessibleData;
+
         const allContracts = [
-            // Fix: Added customerName to purchase contracts to ensure consistent object shape.
-            ...purchaseContracts.map(c => ({ ...c, type: 'خرید', customerName: customers.find(cust => cust.id === c.customerId)?.companyName || 'N/A' })),
-            ...supportContracts.map(c => ({ ...c, type: 'پشتیبانی', contractId: `SC-${c.id}`, customerName: customers.find(cust => cust.id === c.customerId)?.companyName || 'N/A', totalAmount: 0, contractStatus: c.status, contractDate: c.startDate }))
+            ...reportPurchaseContracts.map(c => ({ ...c, type: 'خرید', customerName: customers.find(cust => cust.id === c.customerId)?.companyName || 'N/A' })),
+            ...reportSupportContracts.map(c => ({ ...c, type: 'پشتیبانی', contractId: `SC-${c.id}`, customerName: customers.find(cust => cust.id === c.customerId)?.companyName || 'N/A', totalAmount: 0, contractStatus: c.status, contractDate: c.startDate }))
         ];
 
         const checkDateRange = (dateStr: string) => {
@@ -55,11 +142,53 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
             if (filters.endDate && dateOnly > filters.endDate) return false;
             return true;
         };
+        
+        const getSpecialistsForCustomer = (customerId: number | null): string => {
+            if (customerId === null) return '---';
+            const specialists = new Set<string>();
+
+            let relevantTickets = accessibleData.tickets.filter(t => t.customerId === customerId);
+            let relevantContracts = accessibleData.purchaseContracts.filter(pc => pc.customerId === customerId);
+
+            // If the user is a lead or specialist, we filter by their team
+            if (currentUser.role !== 'مدیر') {
+                let teamUsernames: string[];
+                if (currentUser.role.startsWith('مسئول')) {
+                    const departmentName = currentUser.role.replace('مسئول ', '');
+                    const specialistRole = `کارشناس ${departmentName}` as UserRole;
+                    const specialistsUsernames = users.filter(u => u.role === specialistRole).map(u => u.username);
+                    teamUsernames = [currentUser.username, ...specialistsUsernames];
+                } else { // Specialist
+                    teamUsernames = [currentUser.username];
+                }
+                
+                relevantTickets = relevantTickets.filter(t => t.assignedToUsername && teamUsernames.includes(t.assignedToUsername));
+                relevantContracts = relevantContracts.filter(pc => 
+                    (pc.salespersonUsername && teamUsernames.includes(pc.salespersonUsername)) ||
+                    (pc.crmResponsibleUsername && teamUsernames.includes(pc.crmResponsibleUsername))
+                );
+            }
+            
+            relevantTickets.forEach(ticket => {
+                if (ticket.assignedToUsername) {
+                    specialists.add(getUserFullName(ticket.assignedToUsername));
+                }
+            });
+
+            relevantContracts.forEach(pc => {
+                if (pc.salespersonUsername) specialists.add(getUserFullName(pc.salespersonUsername));
+                if (pc.crmResponsibleUsername) specialists.add(getUserFullName(pc.crmResponsibleUsername));
+            });
+
+            if (specialists.size === 0) return '---';
+            return Array.from(specialists).join('، ');
+        };
+
 
         switch (reportType) {
             case 'customers':
-                columns = ['کد مشتری', 'نام مشتری', 'شرکت', 'سطح', 'وضعیت', 'تاریخ خرید'];
-                data = customers.filter(c => {
+                columns = ['کد مشتری', 'نام مشتری', 'شرکت', 'سطح', 'وضعیت', 'تاریخ خرید', 'کارشناس مسئول'];
+                data = reportCustomers.filter(c => {
                     if (!checkDateRange(c.purchaseDate)) return false;
                     if (filters.status !== 'all' && c.status !== filters.status) return false;
                     return true;
@@ -69,15 +198,30 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
                     company: c.companyName,
                     level: c.level,
                     status: c.status,
-                    purchaseDate: c.purchaseDate
+                    purchaseDate: c.purchaseDate,
+                    specialist: getSpecialistsForCustomer(c.id)
                 }));
                 break;
             case 'contracts':
-                columns = ['شناسه', 'نام مشتری', 'نوع', 'وضعیت', 'تاریخ قرارداد', 'مبلغ (ریال)'];
+                columns = ['شناسه', 'نام مشتری', 'نوع', 'وضعیت', 'تاریخ قرارداد', 'مبلغ (ریال)', 'کارشناس'];
                  data = allContracts.filter(c => {
                     if (!checkDateRange(c.contractDate)) return false;
                     if (filters.status !== 'all' && c.contractStatus !== filters.status) return false;
-                    if (filters.assignedTo !== 'all' && 'salesperson' in c && c.salesperson !== filters.assignedTo) return false;
+                    if (filters.assignedTo !== 'all') {
+                        if (c.type === 'خرید') {
+                            const pc = c as PurchaseContract;
+                            if (pc.salespersonUsername !== filters.assignedTo && pc.crmResponsibleUsername !== filters.assignedTo) {
+                                return false;
+                            }
+                        } else {
+                            // Logic to check if any associated specialist matches the filter
+                            const specialistsForCustomer = getSpecialistsForCustomer(c.customerId).split('، ');
+                            const filteredUserFullName = getUserFullName(filters.assignedTo);
+                            if (!specialistsForCustomer.includes(filteredUserFullName)) {
+                                return false;
+                            }
+                        }
+                    }
                     return true;
                 }).map(c => ({
                     id: c.contractId,
@@ -85,12 +229,13 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
                     type: c.type,
                     status: c.contractStatus,
                     date: c.contractDate,
-                    amount: (c.totalAmount || 0).toLocaleString('fa-IR')
+                    amount: (c.totalAmount || 0).toLocaleString('fa-IR'),
+                    specialist: c.type === 'خرید' ? getUserFullName((c as PurchaseContract).crmResponsibleUsername) : getSpecialistsForCustomer(c.customerId)
                 }));
                 break;
             case 'tickets':
-                columns = ['شماره تیکت', 'عنوان', 'مشتری', 'وضعیت', 'اولویت', 'مسئول'];
-                data = tickets.filter(t => {
+                columns = ['شماره تیکت', 'عنوان', 'مشتری', 'وضعیت', 'اولویت', 'کارشناس'];
+                data = reportTickets.filter(t => {
                     if (!checkDateRange(t.creationDateTime)) return false;
                     if (filters.status !== 'all' && t.status !== filters.status) return false;
                     if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
@@ -102,7 +247,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
                     customer: customers.find(c => c.id === t.customerId)?.companyName || 'N/A',
                     status: t.status,
                     priority: t.priority,
-                    assignee: users.find(u => u.username === t.assignedToUsername)?.firstName || t.assignedToUsername || 'N/A'
+                    specialist: getUserFullName(t.assignedToUsername)
                 }));
                 break;
         }
@@ -110,7 +255,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
         setReportData(data);
         setReportColumns(columns);
         setShowResults(true);
-    }, [filters, reportType, customers, users, purchaseContracts, supportContracts, tickets]);
+    }, [filters, reportType, customers, users, accessibleData, currentUser]);
 
     useEffect(() => {
         handleGenerateReport();
@@ -126,12 +271,14 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
         const ticketStatuses: TicketStatus[] = ['در حال پیگیری', 'انجام نشده', 'اتمام یافته'];
         const contractStatuses: ContractStatus[] = ['فعال', 'منقضی شده', 'لغو شده', 'در انتظار تایید'];
         const customerStatuses: CustomerStatus[] = ['فعال', 'غیرفعال'];
-        const priorities: TicketPriority[] = ['ضطراری', 'متوسط', 'کم'];
+        const priorities: TicketPriority[] = ['اضطراری', 'متوسط', 'کم'];
         
         let statusOptions: {value: string, label: string}[] = [];
         if (reportType === 'tickets') statusOptions = ticketStatuses.map(s => ({value: s, label: s}));
         if (reportType === 'contracts') statusOptions = contractStatuses.map(s => ({value: s, label: s}));
         if (reportType === 'customers') statusOptions = customerStatuses.map(s => ({value: s, label: s}));
+
+        const isSpecialist = currentUser.role.startsWith('کارشناس');
         
         return (
             <>
@@ -156,12 +303,15 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
                 )}
                 
                 {(reportType === 'tickets' || reportType === 'contracts') && (
-                     <div>
-                        <label className="text-sm font-medium text-gray-700">مسئول</label>
-                        <select value={filters.assignedTo} onChange={e => setFilters(f => ({...f, assignedTo: e.target.value}))} className="w-full mt-1 bg-white border border-gray-300 rounded-md py-2 px-3 text-sm">
-                            <option value="all">همه</option>
-                            {users.map(u => <option key={u.id} value={u.username}>{u.firstName} {u.lastName}</option>)}
-                        </select>
+                     <div className="mt-1">
+                        <label className="text-sm font-medium text-gray-700">کاربر مسئول</label>
+                        <SearchableSelect
+                            options={searchableAssigneeOptions}
+                            value={filters.assignedTo}
+                            onChange={value => setFilters(f => ({ ...f, assignedTo: String(value) }))}
+                            placeholder="جستجو یا انتخاب کاربر..."
+                            disabled={isSpecialist}
+                        />
                     </div>
                 )}
             </>

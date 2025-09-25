@@ -15,7 +15,7 @@ const supportContractLevelWeights: Record<SupportContractLevel, number> = {
 };
 
 const ticketPriorityWeights: Record<TicketPriority, number> = {
-  'ضطراری': 1,
+  'اضطراری': 1,
   'متوسط': 2,
   'کم': 3,
 };

@@ -21,11 +21,11 @@ const allMenus: { id: MenuItemId; label: string }[] = [
   { id: 'referrals', label: 'ارجاعات' },
 ];
 
-// FIX: Corrected typo 'کارشناс' to 'کارشناس'
+// FIX: Corrected multiple typos from 'کارشناс' to 'کارشناس' to match the UserRole type definition.
 const allRoles: UserRole[] = [
   'مدیر',
   'مسئول فروش',
-  'مسئول پشتیبان',
+  'مسئول پشتیبانی',
   'مسئول برنامه نویس',
   'کارشناس فروش',
   'کارشناس پشتیبانی',
@@ -39,7 +39,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accessibleMenus, setAccessibleMenus] = useState<MenuItemId[]>([]);
-  // FIX: Corrected typo 'کارشناс' to 'کارشناس'
   const [role, setRole] = useState<UserRole>('کارشناس پشتیبانی');
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -49,7 +48,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
       setLastName(user.lastName);
       setUsername(user.username);
       setAccessibleMenus(user.accessibleMenus || []);
-      // FIX: Corrected typo 'کارشناс' to 'کارشناس'
       setRole(user.role || 'کارشناس پشتیبانی');
     } 
     
@@ -61,7 +59,6 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
             setPassword('');
             setConfirmPassword('');
             setAccessibleMenus([]);
-            // FIX: Corrected typo 'کارشناс' to 'کارشناس'
             setRole('کارشناس پشتیبانی');
             setErrors([]);
         }, 300); // Reset after closing animation

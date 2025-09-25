@@ -8,6 +8,8 @@ import { StopIcon } from './icons/StopIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import ConfirmationModal from './ConfirmationModal';
 import { TrashIcon } from './icons/TrashIcon';
+import { RefreshIcon } from './icons/RefreshIcon';
+import { ClockPlusIcon } from './icons/ClockPlusIcon';
 
 interface TicketActionsProps {
   ticket: Ticket;
@@ -15,6 +17,8 @@ interface TicketActionsProps {
   onRefer: (ticket: Ticket) => void;
   onToggleWork: (ticketId: number) => void;
   onDelete?: (ticketId: number) => void;
+  onReopen?: (ticketId: number) => void;
+  onExtendEditTime: (ticketId: number) => void;
   currentUser: User;
 }
 
@@ -64,11 +68,13 @@ const EditCountdown: React.FC<{ editableUntil: string }> = ({ editableUntil }) =
 };
 
 
-const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, onToggleWork, currentUser, onDelete }) => {
+const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, onToggleWork, currentUser, onDelete, onReopen, onExtendEditTime }) => {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isStillEditable, setIsStillEditable] = useState(new Date().getTime() < new Date(ticket.editableUntil).getTime());
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isReopenConfirmOpen, setIsReopenConfirmOpen] = useState(false);
+    const [isExtendConfirmOpen, setIsExtendConfirmOpen] = useState(false);
 
     const isRunning = ticket.status === 'در حال پیگیری';
     
@@ -134,6 +140,32 @@ const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, 
         setIsDeleteConfirmOpen(false);
     };
 
+    const canReopen = currentUser.role === 'مدیر';
+
+    const handleReopenClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsReopenConfirmOpen(true);
+    };
+
+    const confirmReopen = () => {
+        if (onReopen) {
+            onReopen(ticket.id);
+        }
+        setIsReopenConfirmOpen(false);
+    };
+    
+    const canExtend = currentUser.role === 'مدیر';
+
+    const handleExtendClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsExtendConfirmOpen(true);
+    };
+
+    const confirmExtend = () => {
+        onExtendEditTime(ticket.id);
+        setIsExtendConfirmOpen(false);
+    };
+
     const stopWorkMessage = "با توقف کار، این تیکت به وضعیت 'اتمام یافته' تغییر کرده و به لیست کارهای تکمیل شده منتقل می‌شود. آیا اطمینان دارید؟";
     const startWorkMessage = "آیا از شروع کار روی این تیکت اطمینان دارید؟";
 
@@ -141,6 +173,16 @@ const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, 
         <>
             <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                 
+                 {ticket.status === 'اتمام یافته' && onReopen && canReopen && (
+                    <button
+                        onClick={handleReopenClick}
+                        className="p-2 text-purple-600 rounded-full transition-colors hover:bg-purple-100"
+                        title="به جریان انداختن مجدد"
+                    >
+                        <RefreshIcon />
+                    </button>
+                )}
+
                 {ticket.status !== 'اتمام یافته' && (
                     <>
                         <button
@@ -179,9 +221,24 @@ const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, 
                         <EditCountdown editableUntil={ticket.editableUntil} />
                     </>
                 ) : (
-                    <div className="p-2 text-gray-300 cursor-not-allowed" title="زمان ویرایش به پایان رسیده یا تیکت اتمام یافته است">
-                        <EditIcon />
-                    </div>
+                    <>
+                        {ticket.status !== 'اتمام یافته' && canExtend && (
+                            <button
+                                onClick={handleExtendClick}
+                                className="p-2 text-teal-600 rounded-full transition-colors hover:bg-teal-100"
+                                title="تمدید زمان ویرایش (۳۰ دقیقه)"
+                            >
+                                <ClockPlusIcon />
+                            </button>
+                        )}
+                        <div 
+                            className="p-2 text-gray-400 cursor-pointer hover:bg-slate-100 rounded-full" 
+                            title="مشاهده جزئیات (فقط خواندنی)"
+                            onClick={(e) => handleActionClick(e, () => onEdit(ticket))}
+                        >
+                            <EditIcon />
+                        </div>
+                    </>
                 )}
                 
                  {currentUser.role === 'مدیر' && onDelete && (
@@ -213,6 +270,26 @@ const TicketActions: React.FC<TicketActionsProps> = ({ ticket, onEdit, onRefer, 
                 message={`آیا از حذف تیکت "${ticket.title}" اطمینان دارید؟ این عمل قابل بازگشت نیست.`}
                 confirmText="بله، حذف کن"
                 confirmButtonColor="bg-red-600 hover:bg-red-700"
+            />
+
+            <ConfirmationModal
+                isOpen={isReopenConfirmOpen}
+                onClose={() => setIsReopenConfirmOpen(false)}
+                onConfirm={confirmReopen}
+                title="به جریان انداختن مجدد تیکت"
+                message={`آیا می خواهید تیکت "${ticket.title}" را مجدداً باز کنید؟ وضعیت آن به 'انجام نشده' تغییر خواهد کرد.`}
+                confirmText="بله، باز کن"
+                confirmButtonColor="bg-purple-600 hover:bg-purple-700"
+            />
+            
+            <ConfirmationModal
+                isOpen={isExtendConfirmOpen}
+                onClose={() => setIsExtendConfirmOpen(false)}
+                onConfirm={confirmExtend}
+                title="تمدید زمان ویرایش"
+                message={`آیا می‌خواهید زمان ویرایش تیکت "${ticket.title}" را برای ۳۰ دقیقه دیگر تمدید کنید؟`}
+                confirmText="بله، تمدید کن"
+                confirmButtonColor="bg-teal-600 hover:bg-teal-700"
             />
         </>
     );

@@ -20,12 +20,14 @@ interface TicketsProps {
   onReferTicket: (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => void;
   onToggleWork: (ticketId: number) => void;
   onDeleteTicket: (ticketId: number) => void;
+  onReopenTicket: (ticketId: number) => void;
+  onExtendEditTime: (ticketId: number) => void;
   currentUser: User;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser, supportContracts, onDeleteTicket }) => {
+const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser, supportContracts, onDeleteTicket, onReopenTicket, onExtendEditTime }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -262,6 +264,8 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
                 onToggleSelect={handleToggleSelect}
                 onToggleSelectAll={handleToggleSelectAll}
                 onDelete={onDeleteTicket}
+                onReopen={onReopenTicket}
+                onExtendEditTime={onExtendEditTime}
                 currentUser={currentUser}
               />
               <Pagination 
