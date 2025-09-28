@@ -101,7 +101,7 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
   const allOnPageSelected = paginatedContracts.length > 0 && paginatedContracts.every(c => selectedIds.includes(c.id));
 
   return (
-    <>
+    <section className="flex flex-col flex-1 min-h-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">قرارداد های پشتیبانی</h1>
@@ -116,7 +116,7 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
         </button>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 flex flex-col flex-1">
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
                <input
                   type="text"
@@ -145,16 +145,18 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
               />
               <label htmlFor="checkbox-all-mobile-support" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
           </div>
-          <SupportContractTable 
-              contracts={paginatedContracts} 
-              customers={customers}
-              onEdit={handleOpenModal} 
-              onDelete={(contractId) => setItemToDelete(contractId)}
-              selectedIds={selectedIds}
-              onToggleSelect={handleToggleSelect}
-              onToggleSelectAll={handleToggleSelectAll}
-              currentUser={currentUser}
-          />
+          <div className="flex-1">
+            <SupportContractTable 
+                contracts={paginatedContracts} 
+                customers={customers}
+                onEdit={handleOpenModal} 
+                onDelete={(contractId) => setItemToDelete(contractId)}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+                currentUser={currentUser}
+            />
+          </div>
           <Pagination 
               currentPage={currentPage}
               totalPages={totalPages}
@@ -178,7 +180,7 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
           title="تایید حذف"
           message={itemToDelete ? `آیا از حذف این قرارداد اطمینان دارید؟` : `آیا از حذف ${toPersianDigits(itemsToDelete?.length || 0)} قرارداد انتخاب شده اطمینان دارید؟`}
         />
-    </>
+    </section>
   );
 };
 

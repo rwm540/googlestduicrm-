@@ -187,8 +187,8 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   const allOnPageSelected = paginatedTickets.length > 0 && paginatedTickets.every(t => selectedIds.includes(t.id));
 
   return (
-    <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-      <main className="max-w-7xl mx-auto">
+    <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col">
+      <main className="max-w-7xl mx-auto w-full flex flex-col flex-1">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">
@@ -221,7 +221,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           </div>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-8 flex flex-col flex-1">
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
             <input
               type="text"
@@ -252,24 +252,26 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           </div>
           {viewMode === 'list' ? (
             <>
-              <TicketTable
-                tickets={paginatedTickets}
-                customers={customers}
-                users={users}
-                supportContracts={supportContracts}
-                onEdit={handleOpenModal}
-                onRefer={handleOpenReferModal}
-                onToggleWork={(ticketId) => onToggleWork(ticketId)}
-                isReferralTable={false}
-                emptyMessage={showCompleted ? 'هیچ تیکت اتمام یافته‌ای برای نمایش وجود ندارد.' : 'هیچ تیکت فعالی یافت نشد. برای شروع یک تیکت جدید ایجاد کنید.'}
-                selectedIds={selectedIds}
-                onToggleSelect={handleToggleSelect}
-                onToggleSelectAll={handleToggleSelectAll}
-                onDelete={onDeleteTicket}
-                onReopen={onReopenTicket}
-                onExtendEditTime={onExtendEditTime}
-                currentUser={currentUser}
-              />
+              <div className="flex-1">
+                <TicketTable
+                  tickets={paginatedTickets}
+                  customers={customers}
+                  users={users}
+                  supportContracts={supportContracts}
+                  onEdit={handleOpenModal}
+                  onRefer={handleOpenReferModal}
+                  onToggleWork={(ticketId) => onToggleWork(ticketId)}
+                  isReferralTable={false}
+                  emptyMessage={showCompleted ? 'هیچ تیکت اتمام یافته‌ای برای نمایش وجود ندارد.' : 'هیچ تیکت فعالی یافت نشد. برای شروع یک تیکت جدید ایجاد کنید.'}
+                  selectedIds={selectedIds}
+                  onToggleSelect={handleToggleSelect}
+                  onToggleSelectAll={handleToggleSelectAll}
+                  onDelete={onDeleteTicket}
+                  onReopen={onReopenTicket}
+                  onExtendEditTime={onExtendEditTime}
+                  currentUser={currentUser}
+                />
+              </div>
               <Pagination 
                   currentPage={currentPage}
                   totalPages={totalPages}

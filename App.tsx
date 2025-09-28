@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // FIX: Added CustomerIntroduction type for the new feature.
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, TicketStatus, CustomerIntroduction } from './types';
@@ -128,15 +127,6 @@ const App: React.FC = () => {
     
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    if (globalAlert) {
-      const timer = setTimeout(() => {
-        setGlobalAlert(null);
-      }, 5000); // 5 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [globalAlert]);
 
   const fetchAllData = useCallback(async () => {
     if (!currentUser) return;
@@ -282,6 +272,33 @@ const App: React.FC = () => {
         }
     };
 
+    const introSortFn = (a: CustomerIntroduction, b: CustomerIntroduction) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (parseJalaali(a.introductionDate)?.getTime() || 0);
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (parseJalaali(b.introductionDate)?.getTime() || 0);
+        return dateB - dateA;
+    };
+
+    const handleIntroductionChange = (payload: any) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        const processRecord = (record: any) => convertKeysToCamelCase(record) as CustomerIntroduction;
+
+        if (eventType === 'INSERT') {
+            setIntroductions(prev => 
+                [...prev.filter(item => item.id !== newRecord.id), processRecord(newRecord)]
+                .sort(introSortFn)
+            );
+        } else if (eventType === 'UPDATE') {
+            setIntroductions(prev => 
+                prev.map(item => item.id === newRecord.id ? processRecord(newRecord) : item)
+                .sort(introSortFn)
+            );
+        } else if (eventType === 'DELETE') {
+            const id = oldRecord.id;
+            setIntroductions(prev => prev.filter(item => item.id !== id));
+        }
+    };
+
+
     const channels: RealtimeChannel[] = [];
     channels.push(supabase.channel('public:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, createRealtimeHandler(setUsers)).subscribe());
     channels.push(supabase.channel('public:customers').on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, createRealtimeHandler(setCustomers)).subscribe());
@@ -289,8 +306,7 @@ const App: React.FC = () => {
     channels.push(supabase.channel('public:support_contracts').on('postgres_changes', { event: '*', schema: 'public', table: 'support_contracts' }, createRealtimeHandler(setSupportContracts)).subscribe());
     channels.push(supabase.channel('public:tickets').on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, handleTicketChange).subscribe());
     channels.push(supabase.channel('public:referrals').on('postgres_changes', { event: '*', schema: 'public', table: 'referrals' }, handleReferralChange).subscribe());
-    // FIX: Added realtime subscription for customer introductions.
-    channels.push(supabase.channel('public:customer_introductions').on('postgres_changes', { event: '*', schema: 'public', table: 'customer_introductions' }, createRealtimeHandler(setIntroductions)).subscribe());
+    channels.push(supabase.channel('public:customer_introductions').on('postgres_changes', { event: '*', schema: 'public', table: 'customer_introductions' }, handleIntroductionChange).subscribe());
     // FIX: Removed realtime subscriptions for HR tables.
 
     return () => {
@@ -619,8 +635,8 @@ const App: React.FC = () => {
         return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteManyCustomers} currentUser={currentUser} />;
       case 'contracts':
         return (
-            <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-                <main className="max-w-7xl mx-auto space-y-12">
+            <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col">
+                <main className="max-w-7xl mx-auto w-full flex flex-col flex-1 gap-12">
                     <PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeleteManyPurchaseContracts} currentUser={currentUser} />
                     <SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteManySupportContracts} currentUser={currentUser} />
                 </main>
@@ -639,8 +655,8 @@ const App: React.FC = () => {
           if (currentUser.role === 'مدیر') {
             return true;
           }
-          // Sales team members can see introductions they introduced or are assigned to
-          return intro.introducerUsername === currentUser.username || intro.assignedToUsername === currentUser.username;
+          // Other users can only see introductions currently assigned to them.
+          return intro.assignedToUsername === currentUser.username;
         });
         return <IntroductionsPage introductions={introductionsForUser} users={users} onSave={handleSaveIntroduction} onDelete={handleDeleteIntroduction} currentUser={currentUser} />;
       // FIX: Removed unused HR page cases.

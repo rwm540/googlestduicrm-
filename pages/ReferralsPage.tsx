@@ -164,64 +164,68 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
   const allOnPageSelected = paginatedTickets.length > 0 && paginatedTickets.every(t => selectedIds.includes(t.id));
 
   return (
-    <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-      <main className="max-w-7xl mx-auto">
+    <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col">
+      <main className="max-w-7xl mx-auto w-full flex flex-col flex-1">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-800">ارجاعات</h1>
           <p className="text-gray-500 mt-1">تیکت های ارجاع داده شده به شما در این بخش قابل مشاهده است.</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
-            <input
-              type="text"
-              placeholder="جستجوی تیکت (شماره، عنوان، مشتری)..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
-            />
-            {selectedIds.length > 0 && (
-                 <button 
-                    onClick={handleOpenGroupReferModal}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    <UserCheckIcon className="h-5 w-5" />
-                    <span>ارجاع ({toPersianDigits(selectedIds.length)}) مورد</span>
-                 </button>
-            )}
-        </div>
-        <div className="flex items-center lg:hidden mb-4">
-            <input 
-                id="checkbox-all-mobile-referrals" 
-                type="checkbox"
-                onChange={handleToggleSelectAll}
-                checked={allOnPageSelected}
-                className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" 
-            />
-            <label htmlFor="checkbox-all-mobile-referrals" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
-        </div>
+        <div className="flex flex-col flex-1">
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
+                <input
+                  type="text"
+                  placeholder="جستجوی تیکت (شماره، عنوان، مشتری)..."
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                />
+                {selectedIds.length > 0 && (
+                     <button 
+                        onClick={handleOpenGroupReferModal}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        <UserCheckIcon className="h-5 w-5" />
+                        <span>ارجاع ({toPersianDigits(selectedIds.length)}) مورد</span>
+                     </button>
+                )}
+            </div>
+            <div className="flex items-center lg:hidden mb-4">
+                <input 
+                    id="checkbox-all-mobile-referrals" 
+                    type="checkbox"
+                    onChange={handleToggleSelectAll}
+                    checked={allOnPageSelected}
+                    className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" 
+                />
+                <label htmlFor="checkbox-all-mobile-referrals" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
+            </div>
 
-        <TicketTable
-          tickets={paginatedTickets}
-          customers={customers}
-          users={users}
-          supportContracts={supportContracts}
-          onEdit={handleOpenModal}
-          onRefer={handleOpenReferModal}
-          onToggleWork={(ticketId) => onToggleWork(ticketId)}
-          onExtendEditTime={onExtendEditTime}
-          isReferralTable={true}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onToggleSelectAll={handleToggleSelectAll}
-          currentUser={currentUser}
-        />
-        <Pagination 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            itemsPerPage={ITEMS_PER_PAGE}
-            totalItems={referredTickets.length}
-        />
+            <div className="flex-1">
+                <TicketTable
+                  tickets={paginatedTickets}
+                  customers={customers}
+                  users={users}
+                  supportContracts={supportContracts}
+                  onEdit={handleOpenModal}
+                  onRefer={handleOpenReferModal}
+                  onToggleWork={(ticketId) => onToggleWork(ticketId)}
+                  onExtendEditTime={onExtendEditTime}
+                  isReferralTable={true}
+                  selectedIds={selectedIds}
+                  onToggleSelect={handleToggleSelect}
+                  onToggleSelectAll={handleToggleSelectAll}
+                  currentUser={currentUser}
+                />
+            </div>
+            <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={ITEMS_PER_PAGE}
+                totalItems={referredTickets.length}
+            />
+        </div>
 
         {isModalOpen && (
           <TicketFormModal

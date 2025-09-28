@@ -101,8 +101,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
   const allOnPageSelected = paginatedCustomers.length > 0 && paginatedCustomers.every(c => selectedIds.includes(c.id));
 
   return (
-    <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-      <main className="max-w-7xl mx-auto">
+    <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col">
+      <main className="max-w-7xl mx-auto w-full flex flex-col flex-1">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
@@ -119,7 +119,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
         </div>
 
         {/* Customer Table Section */}
-        <div className="mt-8">
+        <div className="mt-8 flex flex-col flex-1">
             <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
                  <input
                     type="text"
@@ -148,15 +148,17 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
                 />
                 <label htmlFor="checkbox-all-mobile-customers" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
             </div>
-            <CustomerTable 
-              customers={paginatedCustomers} 
-              onEdit={handleOpenModal} 
-              onDelete={(customerId) => setItemToDelete(customerId)}
-              selectedIds={selectedIds}
-              onToggleSelect={handleToggleSelect}
-              onToggleSelectAll={handleToggleSelectAll}
-              currentUser={currentUser}
-            />
+            <div className="flex-1">
+                <CustomerTable 
+                  customers={paginatedCustomers} 
+                  onEdit={handleOpenModal} 
+                  onDelete={(customerId) => setItemToDelete(customerId)}
+                  selectedIds={selectedIds}
+                  onToggleSelect={handleToggleSelect}
+                  onToggleSelectAll={handleToggleSelectAll}
+                  currentUser={currentUser}
+                />
+            </div>
             <Pagination 
                 currentPage={currentPage}
                 totalPages={totalPages}

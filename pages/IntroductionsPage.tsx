@@ -71,6 +71,7 @@ const IntroductionsPage: React.FC<IntroductionsPageProps> = ({ introductions, us
                 onEdit={handleOpenFormModal}
                 onRefer={handleOpenReferModal}
                 onStatusChange={(newStatus) => onSave({ ...intro, status: newStatus })}
+                onDelete={onDelete}
               />
             ))}
              {introductions.length === 0 && (
