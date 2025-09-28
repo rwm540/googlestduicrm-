@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { User, MenuItemId, UserRole } from '../types';
 import Modal from './Modal';
@@ -163,36 +162,13 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
               <input type="text" name="lastName" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm" />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">نام کاربری</label>
-                <input type="text" name="username" id="username" value={username} readOnly className="mt-1 block w-full bg-slate-200 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-500 focus:outline-none sm:text-sm cursor-not-allowed" />
-            </div>
-            <div>
-                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">نقش</label>
-                <select id="role" name="role" value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm">
-                    {allRoles.map(r => (
-                        <option key={r} value={r}>{r}</option>
-                    ))}
-                </select>
-            </div>
-          </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">دسترسی به منوها</label>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3 border p-3 rounded-md bg-gray-50">
-                {allMenus.map(menu => (
-                <div key={menu.id} className="flex items-center">
-                    <input id={`menu-${menu.id}`} type="checkbox" value={menu.id} checked={accessibleMenus.includes(menu.id)} onChange={handleMenuChange} className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500" />
-                    <label htmlFor={`menu-${menu.id}`} className="mr-2 block text-sm text-gray-900">{menu.label}</label>
-                </div>
-                ))}
-            </div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">نام کاربری</label>
+            <input type="text" name="username" id="username" value={username} readOnly className="mt-1 block w-full bg-slate-200 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm cursor-not-allowed" />
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">رمز عبور {user ? '(در صورت تغییر وارد کنید)' : ''}</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">{user ? 'رمز عبور جدید (اختیاری)' : 'رمز عبور'}</label>
               <input type="password" name="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm" />
             </div>
             <div>
@@ -200,9 +176,47 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
               <input type="password" name="confirmPassword" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm" />
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">نقش کاربر</label>
+            <select name="role" value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm">
+                {allRoles.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">دسترسی به منوها</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {allMenus.map(menu => (
+                <div key={menu.id} className="flex items-center">
+                  <input
+                    id={menu.id}
+                    name="accessibleMenus"
+                    type="checkbox"
+                    value={menu.id}
+                    checked={accessibleMenus.includes(menu.id)}
+                    onChange={handleMenuChange}
+                    className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                  />
+                  <label htmlFor={menu.id} className="mr-2 block text-sm text-gray-900">
+                    {menu.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="pt-4 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400">انصراف</button>
-            <button type="submit" className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-white">ذخیره</button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+            >
+              انصراف
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-white"
+            >
+              ذخیره کاربر
+            </button>
           </div>
         </form>
       </div>

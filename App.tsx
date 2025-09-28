@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// FIX: Removed unused HR types to match feature removal.
-import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, TicketStatus } from './types';
+// FIX: Added CustomerIntroduction type for the new feature.
+import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, TicketStatus, CustomerIntroduction } from './types';
 import api from './src/api';
 import { supabase } from './supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -18,9 +18,12 @@ import ReferralsPage from './pages/ReferralsPage';
 import ReportsPage from './pages/ReportsPage';
 import PurchaseContracts from './pages/PurchaseContracts';
 import SupportContracts from './pages/SupportContracts';
+// FIX: Added import for the new IntroductionsPage.
+import IntroductionsPage from './pages/IntroductionsPage';
 // FIX: Removed unused HR page imports.
 import ProcessingOverlay from './components/ProcessingOverlay';
-import { formatJalaaliDateTime, toPersianDigits } from './utils/dateFormatter';
+// FIX: Import parseJalaali to handle date conversions for sorting.
+import { formatJalaaliDateTime, toPersianDigits, parseJalaali } from './utils/dateFormatter';
 import Alert from './components/Alert';
 
 // Helper functions for key conversion
@@ -51,7 +54,7 @@ const convertKeysToSnakeCase = (obj: any): any => {
     return obj;
 };
 
-// FIX: Added missing page titles for HR features to resolve TypeScript error.
+// FIX: Added page title for the new 'introductions' feature.
 const pageTitles: Record<MenuItemId, string> = {
   dashboard: 'داشبورد',
   customers: 'مدیریت مشتریان',
@@ -63,6 +66,7 @@ const pageTitles: Record<MenuItemId, string> = {
   attendance: 'حضور و غیاب',
   leave: 'مرخصی ها',
   missions: 'ماموریت ها',
+  introductions: 'معرفی مشتریان',
 };
 
 const App: React.FC = () => {
@@ -80,6 +84,8 @@ const App: React.FC = () => {
   const [supportContracts, setSupportContracts] = useState<SupportContract[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
+  // FIX: Added state for the new Customer Introductions feature.
+  const [introductions, setIntroductions] = useState<CustomerIntroduction[]>([]);
   // FIX: Removed unused HR data states.
 
   // Session management: Check for a valid session on initial load
@@ -113,13 +119,12 @@ const App: React.FC = () => {
 
    useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1024) {
-        setIsSidebarOpen(true);
-      } else {
+      if (window.innerWidth < 1024) {
         setIsSidebarOpen(false);
       }
     };
     window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
     
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -137,7 +142,7 @@ const App: React.FC = () => {
     if (!currentUser) return;
     setIsProcessing(true);
     try {
-        // FIX: Removed API calls for non-existent HR tables.
+        // Fetch core data first
         const [
             usersRes, customersRes, purchaseContractsRes,
             supportContractsRes, ticketsRes, referralsRes,
@@ -170,12 +175,34 @@ const App: React.FC = () => {
         });
         setReferrals(camelReferrals);
 
-        // FIX: Removed state setters for HR data.
-
     } catch (error: any) {
         const errorMessage = error.response?.data?.message || error.message || 'یک خطای ناشناخته رخ داد.';
-        setGlobalAlert({ messages: ['خطا در دریافت اطلاعات کلی.', errorMessage], type: 'error' });
-        console.error("خطا در دریافت اطلاعات کلی:", errorMessage);
+        setGlobalAlert({ messages: ['خطا در دریافت اطلاعات اصلی.', errorMessage], type: 'error' });
+        console.error("خطا در دریافت اطلاعات اصلی:", errorMessage);
+    }
+
+    // Separately fetch introductions data to handle potential errors gracefully
+    try {
+        const introductionsRes = await api.get('/customer_introductions?select=*&order=created_at.desc');
+        setIntroductions(convertKeysToCamelCase(introductionsRes.data));
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.message || error.message || '';
+        const isMissingTableError = errorMessage.includes("relation \"public.customer_introductions\" does not exist") || errorMessage.includes("Could not find the table");
+
+        if (isMissingTableError) {
+             setGlobalAlert({ 
+                messages: [
+                    'جدول "معرفی مشتریان" یافت نشد!', 
+                    'برای فعال‌سازی این بخش، لازم است جدول مربوطه در پایگاه داده شما ایجاد شود.',
+                    'لطفا اسکریپت SQL مربوط به ساخت جدول را در Supabase اجرا کنید.'
+                ], 
+                type: 'error' 
+            });
+            console.error("خطا: جدول customer_introductions وجود ندارد.");
+        } else {
+            setGlobalAlert({ messages: ['خطا در دریافت اطلاعات معرفی مشتریان.', errorMessage], type: 'error' });
+            console.error("خطا در دریافت اطلاعات معرفی مشتریان:", errorMessage);
+        }
     } finally {
         setIsProcessing(false);
     }
@@ -200,7 +227,7 @@ const App: React.FC = () => {
         const processRecord = (record: any) => convertKeysToCamelCase(record) as T;
 
         if (eventType === 'INSERT') {
-            setState(prev => [...prev.filter(item => item.id !== newRecord.id), processRecord(newRecord)]);
+            setState(prev => [processRecord(newRecord), ...prev.filter(item => item.id !== newRecord.id)]);
         } else if (eventType === 'UPDATE') {
             setState(prev => prev.map(item => item.id === newRecord.id ? processRecord(newRecord) : item));
         } else if (eventType === 'DELETE') {
@@ -262,6 +289,8 @@ const App: React.FC = () => {
     channels.push(supabase.channel('public:support_contracts').on('postgres_changes', { event: '*', schema: 'public', table: 'support_contracts' }, createRealtimeHandler(setSupportContracts)).subscribe());
     channels.push(supabase.channel('public:tickets').on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, handleTicketChange).subscribe());
     channels.push(supabase.channel('public:referrals').on('postgres_changes', { event: '*', schema: 'public', table: 'referrals' }, handleReferralChange).subscribe());
+    // FIX: Added realtime subscription for customer introductions.
+    channels.push(supabase.channel('public:customer_introductions').on('postgres_changes', { event: '*', schema: 'public', table: 'customer_introductions' }, createRealtimeHandler(setIntroductions)).subscribe());
     // FIX: Removed realtime subscriptions for HR tables.
 
     return () => {
@@ -346,6 +375,10 @@ const App: React.FC = () => {
       await api.patch(`/tickets?assigned_to_username=eq.${usernameToDelete}`, { assigned_to_username: null });
       await api.patch(`/purchase_contracts?salesperson_username=eq.${usernameToDelete}`, { salesperson_username: null });
       await api.patch(`/purchase_contracts?crm_responsible_username=eq.${usernameToDelete}`, { crm_responsible_username: null });
+      // FIX: Added deletion of related customer introductions.
+      await api.delete(`/customer_introductions?introducer_username=eq.${usernameToDelete}`);
+      await api.delete(`/customer_introductions?assigned_to_username=eq.${usernameToDelete}`);
+
       await api.delete(`/users?id=eq.${userId}`); 
       
       setUsers(prev => prev.filter(u => u.id !== userId));
@@ -377,6 +410,10 @@ const App: React.FC = () => {
       await api.patch(`/tickets?assigned_to_username=${usernamesQuery}`, { assigned_to_username: null });
       await api.patch(`/purchase_contracts?salesperson_username=${usernamesQuery}`, { salesperson_username: null });
       await api.patch(`/purchase_contracts?crm_responsible_username=${usernamesQuery}`, { crm_responsible_username: null });
+       // FIX: Added deletion of related customer introductions.
+      await api.delete(`/customer_introductions?introducer_username=${usernamesQuery}`);
+      await api.delete(`/customer_introductions?assigned_to_username=${usernamesQuery}`);
+
       await api.delete(`/users?id=${userIdsQuery}`); 
       
       setUsers(prev => prev.filter(u => !userIds.includes(u.id)));
@@ -392,7 +429,8 @@ const App: React.FC = () => {
   const useGenericCrudHandlers = <T extends {id: number}>(
     entityName: string, 
     endpoint: string,
-    setState: React.Dispatch<React.SetStateAction<T[]>>
+    setState: React.Dispatch<React.SetStateAction<T[]>>,
+    sortAfterInsert: (a: T, b: T) => number = () => 0
   ) => {
     const onSave = useCallback(async (data: T | Omit<T, 'id'>) => {
         setIsProcessing(true);
@@ -407,14 +445,14 @@ const App: React.FC = () => {
             } else {
                 const { data: newData } = await api.post(`/${endpoint}`, payload, { headers: { 'Prefer': 'return=representation' } });
                 const newItem = convertKeysToCamelCase(newData[0]);
-                setState(prev => [...prev, newItem]);
+                setState(prev => [...prev, newItem].sort(sortAfterInsert));
             }
             setGlobalAlert({ messages: [`${entityName} با موفقیت ${isEditing ? 'ویرایش' : 'ذخیره'} شد.`], type: 'success' });
         } catch (error: any) { 
             const errorMessage = error.response?.data?.message || error.message;
             setGlobalAlert({ messages: [`خطا در ذخیره ${entityName}.`, errorMessage], type: 'error' });
         } finally { setIsProcessing(false); }
-    }, [entityName, endpoint, setState]);
+    }, [entityName, endpoint, setState, sortAfterInsert]);
 
     const onDelete = useCallback(async (id: number) => {
         setIsProcessing(true);
@@ -446,6 +484,18 @@ const App: React.FC = () => {
   const { onSave: handleSaveCustomer, onDelete: handleDeleteCustomer, onDeleteMany: handleDeleteManyCustomers } = useGenericCrudHandlers<Customer>('مشتری', 'customers', setCustomers);
   const { onSave: handleSavePurchaseContract, onDelete: handleDeletePurchaseContract, onDeleteMany: handleDeleteManyPurchaseContracts } = useGenericCrudHandlers<PurchaseContract>('قرارداد فروش', 'purchase_contracts', setPurchaseContracts);
   const { onSave: handleSaveSupportContract, onDelete: handleDeleteSupportContract, onDeleteMany: handleDeleteManySupportContracts } = useGenericCrudHandlers<SupportContract>('قرارداد پشتیبانی', 'support_contracts', setSupportContracts);
+  // FIX: Added CRUD handlers for the new Customer Introductions feature.
+  const { onSave: handleSaveIntroduction, onDelete: handleDeleteIntroduction } = useGenericCrudHandlers<CustomerIntroduction>(
+    'معرفی مشتری', 
+    'customer_introductions', 
+    setIntroductions,
+    // FIX: Use 'createdAt' for sorting new customer introductions, falling back to 'introductionDate'.
+    (a: CustomerIntroduction, b: CustomerIntroduction) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (parseJalaali(a.introductionDate)?.getTime() || 0);
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (parseJalaali(b.introductionDate)?.getTime() || 0);
+        return dateB - dateA;
+    }
+  );
   // FIX: Removed unused HR CRUD handlers.
 
   const { onSave: handleGenericTicketSave, onDelete: handleDeleteTicket } = useGenericCrudHandlers<Ticket>('تیکت', 'tickets', setTickets);
@@ -582,6 +632,17 @@ const App: React.FC = () => {
         return <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} currentUser={currentUser} />;
       case 'referrals':
         return <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onExtendEditTime={handleExtendEditTime} />;
+      // FIX: Added case for the new introductions page.
+      case 'introductions':
+        const introductionsForUser = introductions.filter(intro => {
+          // Manager can see all introductions
+          if (currentUser.role === 'مدیر') {
+            return true;
+          }
+          // Sales team members can see introductions they introduced or are assigned to
+          return intro.introducerUsername === currentUser.username || intro.assignedToUsername === currentUser.username;
+        });
+        return <IntroductionsPage introductions={introductionsForUser} users={users} onSave={handleSaveIntroduction} onDelete={handleDeleteIntroduction} currentUser={currentUser} />;
       // FIX: Removed unused HR page cases.
       default:
         return <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />;

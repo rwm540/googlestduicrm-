@@ -1,8 +1,8 @@
 // types.ts
 
 // User Management
-// FIX: Added HR menu item IDs to integrate new pages.
-export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals' | 'attendance' | 'leave' | 'missions';
+// FIX: Added 'introductions' menu item ID for the new customer introduction feature.
+export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals' | 'attendance' | 'leave' | 'missions' | 'introductions';
 // Use 'مسئول پشتیبانی' as the correct role title as requested.
 export type UserRole = 'مدیر' | 'مسئول فروش' | 'مسئول پشتیبانی' | 'مسئول برنامه نویس' | 'کارشناس فروش' | 'کارشناس پشتیبانی' | 'کارشناس برنامه نویس';
 
@@ -208,4 +208,27 @@ export interface Mission {
     startTimestamp: string;
     endTimestamp: string;
     completed: boolean;
+}
+
+// Customer Introductions
+export type CustomerIntroductionStatus = 'جدید' | 'در حال پیگیری' | 'موفق' | 'ناموفق';
+export type FamiliarityLevel = 'آشنا' | 'جدید';
+
+export interface CustomerIntroduction {
+  id: number;
+  introducerUsername: string;
+  assignedToUsername: string;
+  customerName: string;
+  keyPersonName: string;
+  position: string;
+  contactNumber: string;
+  businessType: string;
+  location: string;
+  mainNeed: string;
+  familiarityLevel: FamiliarityLevel;
+  introductionDate: string;
+  acquaintanceDetails: string;
+  status: CustomerIntroductionStatus;
+  // FIX: Added createdAt property to match the database schema and support sorting.
+  createdAt?: string;
 }
