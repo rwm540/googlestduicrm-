@@ -68,7 +68,7 @@ const pageTitles: Record<MenuItemId, string> = {
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activePage, setActivePage] = useState<MenuItemId>('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [globalAlert, setGlobalAlert] = useState<{ messages: string[], type: 'error' | 'success' } | null>(null);
@@ -120,8 +120,7 @@ const App: React.FC = () => {
       }
     };
     window.addEventListener('resize', handleResize);
-    // Initial check
-    handleResize(); 
+    
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
