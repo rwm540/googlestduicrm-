@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { CustomerIntroduction, User, FamiliarityLevel } from '../types';
+import { CustomerIntroduction, User, FamiliarityLevel, IntroductionReferral } from '../types';
 import Modal from './Modal';
 import Alert from './Alert';
 import DatePicker from './DatePicker';
 import SearchableSelect from './SearchableSelect';
 import { formatJalaali } from '../utils/dateFormatter';
+import IntroductionReferralHistory from './IntroductionReferralHistory';
 
 interface IntroductionFormModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface IntroductionFormModalProps {
   introduction: CustomerIntroduction | null;
   currentUser: User;
   salesTeam: User[];
+  introductionHistory: IntroductionReferral[];
 }
 
 const getInitialState = (currentUser: User): Omit<CustomerIntroduction, 'id'> => ({
@@ -34,7 +36,7 @@ const getInitialState = (currentUser: User): Omit<CustomerIntroduction, 'id'> =>
 const inputClass = "mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm";
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
-const IntroductionFormModal: React.FC<IntroductionFormModalProps> = ({ isOpen, onClose, onSave, introduction, currentUser, salesTeam }) => {
+const IntroductionFormModal: React.FC<IntroductionFormModalProps> = ({ isOpen, onClose, onSave, introduction, currentUser, salesTeam, introductionHistory }) => {
   const [formData, setFormData] = useState(() => getInitialState(currentUser));
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -91,6 +93,12 @@ const IntroductionFormModal: React.FC<IntroductionFormModalProps> = ({ isOpen, o
               <div className="sm:col-span-2"><label className={labelClass}>نحوه آشنایی</label><textarea name="acquaintanceDetails" value={formData.acquaintanceDetails} onChange={handleChange} className={`${inputClass} min-h-[80px]`}></textarea></div>
                <div><label className={labelClass}>مسئول پیگیری</label><SearchableSelect options={salesTeam.map(u => ({value: u.username, label: `${u.firstName} ${u.lastName} (${u.role})`}))} value={formData.assignedToUsername} onChange={val => setFormData(f => ({...f, assignedToUsername: String(val)}))} /></div>
             </div>
+             {introductionHistory.length > 0 && (
+              <div className="mt-4">
+                <label className={labelClass}>تاریخچه ارجاعات</label>
+                <IntroductionReferralHistory history={introductionHistory} users={salesTeam} />
+              </div>
+            )}
           </div>
         </div>
         <div className="bg-gray-50 px-6 py-3 flex justify-end gap-3 rounded-b-lg">

@@ -10,12 +10,17 @@ interface AlertProps {
   duration?: number;
 }
 
-const Alert: React.FC<AlertProps> = ({ messages, onClose, type = 'error', duration = 5000 }) => {
+const Alert: React.FC<AlertProps> = ({ messages, onClose, type = 'error', duration = 10000 }) => {
   const [isClosing, setIsClosing] = useState(false);
 
   // This effect handles the auto-dismiss functionality.
   useEffect(() => {
     if (messages.length > 0) {
+      // FIX: Reset the closing animation state whenever a new message arrives.
+      // This prevents a new toast from being closed prematurely if it appears
+      // while the previous one was in its closing animation.
+      setIsClosing(false);
+
       const timer = setTimeout(() => {
         handleClose();
       }, duration);
@@ -57,34 +62,32 @@ const Alert: React.FC<AlertProps> = ({ messages, onClose, type = 'error', durati
   const currentConfig = typeConfig[type || 'error'];
 
   return (
-    // The main container is fixed to overlay the content and positioned top-right (top-left in RTL).
     <div
-      className={`fixed top-5 left-5 z-[9999] ${isClosing ? 'animate-toast-out' : 'animate-toast-in'}`}
+      className={`${baseClasses} ${currentConfig.classes} ${isClosing ? 'animate-toast-out' : 'animate-toast-in'}`}
+      role="alert"
       onAnimationEnd={onAnimationEnd}
     >
-      <div className={`${baseClasses} ${currentConfig.classes}`} role="alert">
-        <div className="flex-shrink-0">
-          {currentConfig.icon}
-        </div>
-        <div className="flex-1">
-          <h3 className="font-bold text-sm">
-            {currentConfig.title}
-          </h3>
-          <ul className="text-sm mt-1 space-y-1">
-            {messages.map((msg, index) => (
-              <li key={index}>{msg}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex-shrink-0 -ml-2 -mt-2">
-          <button
-            onClick={handleClose}
-            className={`p-1.5 rounded-full hover:bg-black/10 transition-colors`}
-            aria-label="بستن"
-          >
-            <XIcon />
-          </button>
-        </div>
+      <div className="flex-shrink-0">
+        {currentConfig.icon}
+      </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-sm">
+          {currentConfig.title}
+        </h3>
+        <ul className="text-sm mt-1 space-y-1">
+          {messages.map((msg, index) => (
+            <li key={index}>{msg}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex-shrink-0 -ml-2 -mt-2">
+        <button
+          onClick={handleClose}
+          className={`p-1.5 rounded-full hover:bg-black/10 transition-colors`}
+          aria-label="بستن"
+        >
+          <XIcon />
+        </button>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { CustomerIntroduction, User } from '../types';
+import { CustomerIntroduction, User, IntroductionReferral } from '../types';
 import { PlusIcon } from '../components/icons/PlusIcon';
 import IntroductionCard from '../components/IntroductionCard';
 import IntroductionFormModal from '../components/IntroductionFormModal';
@@ -11,15 +11,17 @@ interface IntroductionsPageProps {
   onSave: (introduction: CustomerIntroduction | Omit<CustomerIntroduction, 'id'>) => void;
   onDelete: (id: number) => void;
   currentUser: User;
+  onReferIntroduction: (introduction: CustomerIntroduction, newAssigneeUsername: string) => void;
+  introductionReferrals: IntroductionReferral[];
 }
 
-const IntroductionsPage: React.FC<IntroductionsPageProps> = ({ introductions, users, onSave, onDelete, currentUser }) => {
+const IntroductionsPage: React.FC<IntroductionsPageProps> = ({ introductions, users, onSave, onDelete, currentUser, onReferIntroduction, introductionReferrals }) => {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
   const [editingIntroduction, setEditingIntroduction] = useState<CustomerIntroduction | null>(null);
   const [referringIntroduction, setReferringIntroduction] = useState<CustomerIntroduction | null>(null);
 
-  const salesTeamForForm = useMemo(() => users.filter(u => u.role === 'مسئول فروش' || u.role === 'کارشناس فروش'), [users]);
+  const salesTeamForForm = useMemo(() => users.filter(u => u.role === 'مسئول فروش' || u.role === 'کارشناس فروش' || u.role === 'مدیر'), [users]);
   
   const handleOpenFormModal = (intro: CustomerIntroduction | null = null) => {
     setEditingIntroduction(intro);
@@ -38,7 +40,7 @@ const IntroductionsPage: React.FC<IntroductionsPageProps> = ({ introductions, us
   
   const handleRefer = (newAssigneeUsername: string) => {
     if (referringIntroduction) {
-        onSave({ ...referringIntroduction, assignedToUsername: newAssigneeUsername });
+        onReferIntroduction(referringIntroduction, newAssigneeUsername);
     }
     setIsReferModalOpen(false);
   };
@@ -91,6 +93,7 @@ const IntroductionsPage: React.FC<IntroductionsPageProps> = ({ introductions, us
         introduction={editingIntroduction}
         currentUser={currentUser}
         salesTeam={salesTeamForForm}
+        introductionHistory={editingIntroduction ? introductionReferrals.filter(r => r.introductionId === editingIntroduction.id) : []}
       />
 
       <ReferIntroductionModal 

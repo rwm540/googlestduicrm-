@@ -1,17 +1,16 @@
-
 import React, { useState, useMemo } from 'react';
 import { User, Referral, Customer, Ticket, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
 import TicketFormModal from '../components/TicketFormModal';
 import ReferTicketModal from '../components/ReferTicketModal';
 import Pagination from '../components/Pagination';
-import { calculateTicketScore } from '../utils/ticketScoring';
 import { UserCheckIcon } from '../components/icons/UserCheckIcon';
 import { toPersianDigits } from '../utils/dateFormatter';
 
 
 interface ReferralsPageProps {
   referrals: Referral[];
+  tickets: Ticket[]; // Use the main sorted/scored tickets list
   currentUser: User;
   users: User[];
   customers: Customer[];
@@ -24,7 +23,7 @@ interface ReferralsPageProps {
 
 const ITEMS_PER_PAGE = 10;
 
-const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, users, customers, onSave, onReferTicket, onToggleWork, supportContracts, onExtendEditTime }) => {
+const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, tickets, currentUser, users, customers, onSave, onReferTicket, onToggleWork, supportContracts, onExtendEditTime }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -79,9 +78,9 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
   const latestReferrals = useMemo(() => {
       const referralsByTicketId = new Map<number, Referral>();
       for (const referral of referrals) {
-          const existing = referralsByTicketId.get(referral.ticket.id);
+          const existing = referralsByTicketId.get(referral.ticketId);
           if (!existing || new Date(referral.referralDate) > new Date(existing.referralDate)) {
-              referralsByTicketId.set(referral.ticket.id, referral);
+              referralsByTicketId.set(referral.ticketId, referral);
           }
       }
       return Array.from(referralsByTicketId.values());
@@ -89,29 +88,30 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
 
 
   const referredTickets = useMemo(() => {
-    let filteredReferrals;
+    const ticketsMap = new Map(tickets.map(t => [t.id, t]));
+
+    let relevantReferrals;
 
     if (currentUser.role === 'مدیر') {
-        filteredReferrals = latestReferrals;
-    } else if (currentUser.role.startsWith('مسئول')) { // Is a department lead
+        relevantReferrals = latestReferrals;
+    } else if (currentUser.role.startsWith('مسئول')) {
         const department = currentUser.role.replace('مسئول ', '');
         const specialistsInDept = users
             .filter(user => user.role === `کارشناس ${department}`)
             .map(user => user.username);
         const departmentMembers = [currentUser.username, ...specialistsInDept];
-        // Fix: Corrected property access from `referredTo` to `referredToUsername`.
-        filteredReferrals = latestReferrals.filter(r => departmentMembers.includes(r.referredToUsername));
+        relevantReferrals = latestReferrals.filter(r => departmentMembers.includes(r.referredToUsername));
     } else { // Is a specialist
-        // Fix: Corrected property access from `referredTo` to `referredToUsername`.
-        filteredReferrals = latestReferrals.filter(r => r.referredToUsername === currentUser.username);
+        relevantReferrals = latestReferrals.filter(r => r.referredToUsername === currentUser.username);
     }
-    
-    filteredReferrals = filteredReferrals.filter(r => r.ticket.status !== 'اتمام یافته');
+
+    let ticketsForDisplay = relevantReferrals
+        .map(r => ticketsMap.get(r.ticketId))
+        .filter((t): t is Ticket => t !== undefined && t.status !== 'اتمام یافته');
 
     if (searchTerm) {
         const search = searchTerm.toLowerCase();
-        filteredReferrals = filteredReferrals.filter(r => {
-            const ticket = r.ticket;
+        ticketsForDisplay = ticketsForDisplay.filter(ticket => {
             const customer = customers.find(c => c.id === ticket.customerId);
             return (
                 ticket.title.toLowerCase().includes(search) ||
@@ -121,23 +121,9 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
         });
     }
 
-    const scoredReferrals = filteredReferrals.map(r => ({
-        referral: r,
-        score: calculateTicketScore(r.ticket, customers, supportContracts)
-    }));
-      
-    scoredReferrals.sort((a, b) => {
-        if (a.score !== b.score) {
-            return a.score - b.score;
-        }
-        return new Date(b.referral.referralDate).getTime() - new Date(a.referral.referralDate).getTime();
-    });
-
-    return scoredReferrals.map(item => ({
-        ...item.referral.ticket,
-        score: item.score
-    }));
-  }, [latestReferrals, currentUser, customers, supportContracts, searchTerm, users]);
+    // The list is already sorted from App.tsx. Filtering preserves the order.
+    return ticketsForDisplay;
+  }, [latestReferrals, tickets, currentUser, users, customers, searchTerm]);
 
   const totalPages = Math.ceil(referredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = referredTickets.slice(
@@ -201,7 +187,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
                 <label htmlFor="checkbox-all-mobile-referrals" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1">
                 <TicketTable
                   tickets={paginatedTickets}
                   customers={customers}

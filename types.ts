@@ -158,6 +158,7 @@ export interface Ticket {
     editableUntil: string;
     workSessionStartedAt?: string;
     totalWorkDuration: number;
+    score?: number;
 }
 
 export interface Referral {
@@ -231,4 +232,13 @@ export interface CustomerIntroduction {
   status: CustomerIntroductionStatus;
   // FIX: Added createdAt property to match the database schema and support sorting.
   createdAt?: string;
+}
+
+export interface IntroductionReferral {
+  id: number;
+  introductionId: number;
+  referredByUsername: string;
+  referredToUsername: string;
+  referralDate: string;
+  introduction?: CustomerIntroduction;
 }

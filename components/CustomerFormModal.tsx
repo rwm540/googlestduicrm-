@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Customer, Gender, MaritalStatus, PaymentMethod, CustomerLevel, SoftwareType, CustomerStatus } from '../types';
 import Modal from './Modal';
@@ -154,6 +153,10 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
         const cleanedMobiles = formData.mobileNumbers.filter(m => m.trim() !== '');
         const cleanedEmails = formData.emails.filter(email => email.trim() !== '');
         const cleanedPhones = formData.phone.filter(p => p.trim() !== '');
+
+        if (cleanedMobiles.length === 0) {
+            validationErrors.push('وارد کردن حداقل یک شماره موبایل اجباری است.');
+        }
 
         // Check for duplicates within the same customer entry
         if (new Set(cleanedMobiles).size !== cleanedMobiles.length) {

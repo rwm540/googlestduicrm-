@@ -4,6 +4,8 @@ import { Customer, PurchaseContract, SupportContract, Ticket, User, TicketStatus
 import DatePicker from '../components/DatePicker';
 import Pagination from '../components/Pagination';
 import SearchableSelect from '../components/SearchableSelect';
+import { exportReportToCSV } from '../utils/dateFormatter';
+import { DownloadIcon } from '../components/icons/DownloadIcon';
 
 type ReportType = 'customers' | 'contracts' | 'tickets';
 
@@ -267,6 +269,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
         (currentPage - 1) * ITEMS_PER_PAGE,
         currentPage * ITEMS_PER_PAGE
     );
+    
+    const handleExport = () => {
+        if (reportData.length === 0) return;
+        exportReportToCSV(reportType, reportData, reportColumns, filters);
+    };
 
     const renderFilters = () => {
         const ticketStatuses: TicketStatus[] = ['در حال پیگیری', 'انجام نشده', 'اتمام یافته'];
@@ -355,8 +362,17 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ customers, users, purchaseCon
         
         {showResults && (
             <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
-                 <div className="p-4 border-b">
+                 <div className="p-4 border-b flex justify-between items-center">
                     <h3 className="text-lg font-semibold text-slate-800">نتایج گزارش</h3>
+                     {reportData.length > 0 && (
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors text-sm"
+                        >
+                            <DownloadIcon />
+                            <span>خروجی اکسل</span>
+                        </button>
+                    )}
                 </div>
                 {reportData.length > 0 ? (
                     <>

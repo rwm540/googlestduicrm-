@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Ticket, Customer, User, Referral, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -6,9 +5,8 @@ import TicketFormModal from '../components/TicketFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
 import TicketBoard from '../components/TicketBoard';
 import ReferTicketModal from '../components/ReferTicketModal';
-import { parseJalaaliDateTime, toPersianDigits } from '../utils/dateFormatter';
+import { toPersianDigits } from '../utils/dateFormatter';
 import Pagination from '../components/Pagination';
-import { calculateTicketScore } from '../utils/ticketScoring';
 import { UserCheckIcon } from '../components/icons/UserCheckIcon';
 
 interface TicketsProps {
@@ -57,7 +55,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   };
   
   const handleOpenGroupReferModal = () => {
-    const ticketsToRefer = sortedAndFilteredTickets.filter(t => selectedIds.includes(t.id));
+    const ticketsToRefer = filteredTickets.filter(t => selectedIds.includes(t.id));
     if (ticketsToRefer.length > 0) {
         setReferringTickets(ticketsToRefer);
         setIsReferModalOpen(true);
@@ -90,11 +88,9 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
     setCurrentPage(1);
   };
 
-  const sortedAndFilteredTickets = useMemo(() => {
+  const filteredTickets = useMemo(() => {
     let sourceTickets: Ticket[];
 
-    // When showing completed, we want to show ALL completed tickets, including those that might have been referred and then completed.
-    // When showing active, we only want from the main 'tickets' list.
     if (showCompleted) {
         const allTicketsMap = new Map<number, Ticket>();
         tickets.forEach(ticket => allTicketsMap.set(ticket.id, ticket));
@@ -143,27 +139,12 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
       });
     }
 
-    // Score and sort the tickets
-    const scoredTickets = sourceTickets.map(ticket => ({
-        ...ticket,
-        score: calculateTicketScore(ticket, customers, supportContracts),
-    }));
-
-    scoredTickets.sort((a, b) => {
-        if (a.score !== b.score) {
-            return a.score - b.score;
-        }
-        const dateA = parseJalaaliDateTime(a.creationDateTime)?.getTime() || 0;
-        const dateB = parseJalaaliDateTime(b.creationDateTime)?.getTime() || 0;
-        return dateB - dateA; // Sort by creation date descending as a tie-breaker
-    });
-
-    return scoredTickets;
+    return sourceTickets;
   }, [tickets, referrals, searchTerm, customers, showCompleted, currentUser, supportContracts, users]);
 
 
-  const totalPages = Math.ceil(sortedAndFilteredTickets.length / ITEMS_PER_PAGE);
-  const paginatedTickets = sortedAndFilteredTickets.slice(
+  const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
+  const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -252,7 +233,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           </div>
           {viewMode === 'list' ? (
             <>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1">
                 <TicketTable
                   tickets={paginatedTickets}
                   customers={customers}
@@ -277,11 +258,11 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
                   totalPages={totalPages}
                   onPageChange={setCurrentPage}
                   itemsPerPage={ITEMS_PER_PAGE}
-                  totalItems={sortedAndFilteredTickets.length}
+                  totalItems={filteredTickets.length}
               />
             </>
           ) : (
-            <TicketBoard tickets={sortedAndFilteredTickets} />
+            <TicketBoard tickets={filteredTickets} />
           )}
         </div>
 

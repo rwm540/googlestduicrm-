@@ -61,7 +61,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   const [errors, setErrors] = useState<string[]>([]);
   const [confirmationData, setConfirmationData] = useState<Ticket | Omit<Ticket, 'id'> | null>(null);
 
-  const isReadOnly = ticket ? (new Date().getTime() > new Date(ticket.editableUntil).getTime() || ticket.status === 'اتمام یافته') : false;
+  const isReadOnly = ticket 
+    ? (
+        (new Date().getTime() > new Date(ticket.editableUntil).getTime() || ticket.status === 'اتمام یافته') 
+        && currentUser.role !== 'مدیر' // Managers can always edit.
+      ) 
+    : false;
+
   const modalTitle = ticket 
     ? (isReadOnly ? `مشاهده تیکت #${ticket.ticketNumber}` : `ویرایش تیکت #${ticket.ticketNumber}`)
     : 'ایجاد تیکت جدید';
@@ -71,7 +77,13 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   useEffect(() => {
     if (isOpen) {
         if (ticket) {
-            setFormData(ticket);
+            const validPriorities: TicketPriority[] = ['کم', 'متوسط', 'اضطراری'];
+            const validatedTicket = {
+                ...ticket,
+                // If the ticket's priority is not one of the valid options, default to 'متوسط'
+                priority: validPriorities.includes(ticket.priority) ? ticket.priority : 'متوسط',
+            };
+            setFormData(validatedTicket);
         } else {
             setFormData(getInitialState(currentUser));
         }
