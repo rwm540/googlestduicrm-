@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useMemo } from 'react';
 import { User, Referral, Customer, Ticket, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -207,6 +204,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
           tickets={paginatedTickets}
           customers={customers}
           users={users}
+          supportContracts={supportContracts}
           onEdit={handleOpenModal}
           onRefer={handleOpenReferModal}
           onToggleWork={(ticketId) => onToggleWork(ticketId)}
@@ -235,6 +233,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, currentUser, u
             users={users}
             currentUser={currentUser}
             referrals={referrals}
+            supportContracts={supportContracts}
           />
         )}
         

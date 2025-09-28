@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { XIcon } from './icons/XIcon';
 
 interface ModalProps {
   isOpen: boolean;
@@ -40,7 +41,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, size = 'md' })
       aria-labelledby="modal-title"
       role="dialog"
       aria-modal="true"
-      onClick={onClose}
     >
       {/* Overlay */}
       <div 
@@ -53,6 +53,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, size = 'md' })
         className={`relative z-10 w-full ${sizeClasses[size]} bg-white rounded-lg shadow-2xl border border-gray-200/80 transform animate-scale-up my-auto`}
         onClick={(e) => e.stopPropagation()} // Prevent closing modal when clicking inside
       >
+        <button
+          onClick={onClose}
+          className="absolute top-3 left-3 z-10 p-2 text-gray-400 rounded-full hover:bg-gray-100 hover:text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+          aria-label="بستن"
+        >
+          <XIcon />
+        </button>
         {children}
       </div>
     </div>

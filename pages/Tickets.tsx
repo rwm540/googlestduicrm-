@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Ticket, Customer, User, Referral, SupportContract } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -255,6 +256,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
                 tickets={paginatedTickets}
                 customers={customers}
                 users={users}
+                supportContracts={supportContracts}
                 onEdit={handleOpenModal}
                 onRefer={handleOpenReferModal}
                 onToggleWork={(ticketId) => onToggleWork(ticketId)}
@@ -290,6 +292,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           users={users}
           currentUser={currentUser}
           referrals={referrals}
+          supportContracts={supportContracts}
         />
         <ReferTicketModal
           isOpen={isReferModalOpen}

@@ -28,39 +28,51 @@ const ReferTicketModal: React.FC<ReferTicketModalProps> = ({ isOpen, onClose, on
   const availableUsers = useMemo(() => {
     if (!isOpen || !tickets) return [];
 
-    // Get users that are not the current user or already assigned to the ticket(s)
-    const currentAssignees = new Set(tickets.map(t => t.assignedToUsername));
-    const potentialUsers = users.filter(user =>
-        !currentAssignees.has(user.username) && user.username !== currentUser.username
-    );
-
     const { role } = currentUser;
     const currentUserDepartment = getDepartment(role);
 
-    // Rule: مدیر (Manager) -> to any مسئول (Lead) or another مدیر (Manager)
+    // مدیر (Manager) can refer to other managers and leads.
     if (role === 'مدیر') {
-      return potentialUsers.filter(user => user.role.startsWith('مسئول ') || user.role === 'مدیر');
+      return users.filter(user => {
+        const isNotCurrentUser = user.username !== currentUser.username;
+        const isManager = user.role === 'مدیر';
+        const isLead = user.role.startsWith('مسئول ');
+        return isNotCurrentUser && (isManager || isLead);
+      });
     }
 
-    // Rule: مسئول (Lead) -> to a کارشناس in their own department, another مسئول, or a مدیر
+    // مسئول (Lead) can refer to their own specialists, other leads, and managers.
     if (role.startsWith('مسئول ')) {
-      if (!currentUserDepartment) return []; // Should always have a department
-      return potentialUsers.filter(user => 
-        user.role === `کارشناس ${currentUserDepartment}` || // Can refer to specialist in their dept
-        user.role.startsWith('مسئول ') || 
-        user.role === 'مدیر'
-      );
+      if (!currentUserDepartment) return []; // Should have a department
+      return users.filter(user => {
+        // Cannot refer to oneself
+        if (user.username === currentUser.username) {
+            return false;
+        }
+        // Can refer to Manager
+        if (user.role === 'مدیر') {
+            return true;
+        }
+        // Can refer to other Leads
+        if (user.role.startsWith('مسئول ')) {
+            return true;
+        }
+        // Can refer to specialists in their own department
+        if (user.role === `کارشناس ${currentUserDepartment}`) {
+            return true;
+        }
+        return false;
+      });
     }
 
-    // Rule: کارشناس (Specialist) -> to another کارشناس (Specialist) in their department, or their own مسئول (Lead)
+    // کارشناس (Specialist) can refer to another specialist in their department, or their own lead.
     if (role.startsWith('کارشناس ')) {
       if (!currentUserDepartment) return []; // Should always have a department
-      return potentialUsers.filter(user => {
-        // Is another specialist in the same department
+      return users.filter(user => {
+        const isNotCurrentUser = user.username !== currentUser.username;
         const isPeerSpecialist = user.role === `کارشناس ${currentUserDepartment}`;
-        // Is the lead of the same department
         const isDepartmentLead = user.role === `مسئول ${currentUserDepartment}`;
-        return isPeerSpecialist || isDepartmentLead;
+        return isNotCurrentUser && (isPeerSpecialist || isDepartmentLead);
       });
     }
 

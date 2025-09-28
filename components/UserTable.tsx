@@ -49,10 +49,11 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
              <div className="absolute top-4 left-4 z-10">
               <input 
                 type="checkbox"
-                className="h-5 w-5 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500"
+                className="h-5 w-5 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 checked={selectedIds.includes(user.id)}
                 onChange={() => onToggleSelect(user.id)}
                 onClick={e => e.stopPropagation()}
+                disabled={user.id === currentUser.id}
               />
             </div>
             <div className="flex items-center gap-4">
@@ -95,8 +96,10 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
                 {currentUser.role === 'مدیر' && (
                   <button
                     onClick={() => onDelete(user.id)}
-                    className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                    disabled={user.id === currentUser.id}
+                    className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     aria-label={`حذف ${user.firstName} ${user.lastName}`}
+                    title={user.id === currentUser.id ? "شما نمی‌توانید خودتان را حذف کنید" : `حذف ${user.firstName} ${user.lastName}`}
                   >
                     <TrashIcon />
                   </button>
@@ -136,7 +139,8 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
                     <input id={`checkbox-user-${user.id}`} type="checkbox"
                       checked={selectedIds.includes(user.id)}
                       onChange={() => onToggleSelect(user.id)}
-                      className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500" />
+                      disabled={user.id === currentUser.id}
+                      className="w-4 h-4 text-cyan-600 bg-gray-100 border-gray-300 rounded focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed" />
                     <label htmlFor={`checkbox-user-${user.id}`} className="sr-only">checkbox</label>
                   </div>
                 </td>
@@ -177,8 +181,10 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEdit, onDelete, selected
                     {currentUser.role === 'مدیر' && (
                       <button
                         onClick={() => onDelete(user.id)}
-                        className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors"
+                        disabled={user.id === currentUser.id}
+                        className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                         aria-label={`حذف ${user.firstName} ${user.lastName}`}
+                        title={user.id === currentUser.id ? "شما نمی‌توانید خودتان را حذف کنید" : `حذف ${user.firstName} ${user.lastName}`}
                       >
                         <TrashIcon />
                       </button>

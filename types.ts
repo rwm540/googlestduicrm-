@@ -3,7 +3,7 @@
 // User Management
 // FIX: Added HR menu item IDs to integrate new pages.
 export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals' | 'attendance' | 'leave' | 'missions';
-// FIX: Standardized 'مسئول پشتیبان' to 'مسئول پشتیبانی' for consistency with specialist roles.
+// Use 'مسئول پشتیبانی' as the correct role title as requested.
 export type UserRole = 'مدیر' | 'مسئول فروش' | 'مسئول پشتیبانی' | 'مسئول برنامه نویس' | 'کارشناس فروش' | 'کارشناس پشتیبانی' | 'کارشناس برنامه نویس';
 
 export interface User {

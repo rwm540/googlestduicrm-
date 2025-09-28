@@ -1,6 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, AttendanceRecord, LeaveRequest, Mission, AttendanceType, LeaveRequestStatus } from './types';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// FIX: Removed unused HR types to match feature removal.
+import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, TicketStatus } from './types';
 import api from './src/api';
+import { supabase } from './supabaseClient';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Components and Pages
 import Sidebar from './components/Sidebar';
@@ -14,11 +18,10 @@ import ReferralsPage from './pages/ReferralsPage';
 import ReportsPage from './pages/ReportsPage';
 import PurchaseContracts from './pages/PurchaseContracts';
 import SupportContracts from './pages/SupportContracts';
-import AttendancePage from './pages/AttendancePage';
-import LeavePage from './pages/LeavePage';
-import MissionsPage from './pages/MissionsPage';
+// FIX: Removed unused HR page imports.
 import ProcessingOverlay from './components/ProcessingOverlay';
-import { formatJalaaliDateTime } from './utils/dateFormatter';
+import { formatJalaaliDateTime, toPersianDigits } from './utils/dateFormatter';
+import Alert from './components/Alert';
 
 // Helper functions for key conversion
 const convertKeysToCamelCase = (obj: any): any => {
@@ -34,23 +37,21 @@ const convertKeysToCamelCase = (obj: any): any => {
   return obj;
 };
 
+// FIX: Corrected the snake_case conversion to handle nested arrays of objects properly.
 const convertKeysToSnakeCase = (obj: any): any => {
     if (Array.isArray(obj)) {
         return obj.map(v => convertKeysToSnakeCase(v));
     } else if (obj !== null && typeof obj === 'object') {
         return Object.keys(obj).reduce((acc, key) => {
             const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-            if (Array.isArray(obj[key])) {
-              acc[snakeKey] = obj[key];
-            } else {
-              acc[snakeKey] = convertKeysToSnakeCase(obj[key]);
-            }
+            acc[snakeKey] = convertKeysToSnakeCase(obj[key]);
             return acc;
         }, {} as any);
     }
     return obj;
 };
 
+// FIX: Added missing page titles for HR features to resolve TypeScript error.
 const pageTitles: Record<MenuItemId, string> = {
   dashboard: 'داشبورد',
   customers: 'مدیریت مشتریان',
@@ -70,6 +71,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [globalAlert, setGlobalAlert] = useState<{ messages: string[], type: 'error' | 'success' } | null>(null);
 
   // All application data states
   const [users, setUsers] = useState<User[]>([]);
@@ -78,10 +80,7 @@ const App: React.FC = () => {
   const [supportContracts, setSupportContracts] = useState<SupportContract[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  // HR data
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [missions, setMissions] = useState<Mission[]>([]);
+  // FIX: Removed unused HR data states.
 
   // Session management: Check for a valid session on initial load
   useEffect(() => {
@@ -126,20 +125,30 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    if (globalAlert) {
+      const timer = setTimeout(() => {
+        setGlobalAlert(null);
+      }, 5000); // 5 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [globalAlert]);
+
   const fetchAllData = useCallback(async () => {
     if (!currentUser) return;
     setIsProcessing(true);
     try {
+        // FIX: Removed API calls for non-existent HR tables.
         const [
             usersRes, customersRes, purchaseContractsRes,
-            supportContractsRes, ticketsRes, referralsRes
+            supportContractsRes, ticketsRes, referralsRes,
         ] = await Promise.all([
             api.get('/users?select=*&order=id.asc'),
             api.get('/customers?select=*&order=id.asc'),
             api.get('/purchase_contracts?select=*&order=id.asc'),
             api.get('/support_contracts?select=*&order=id.asc'),
             api.get('/tickets?select=*&order=id.asc'),
-            api.get('/referrals?select=*,ticket:tickets(*)&order=id.asc')
+            api.get('/referrals?select=*,ticket:tickets(*)&order=id.asc'),
         ]);
 
         const camelUsers = convertKeysToCamelCase(usersRes.data);
@@ -162,8 +171,12 @@ const App: React.FC = () => {
         });
         setReferrals(camelReferrals);
 
+        // FIX: Removed state setters for HR data.
+
     } catch (error: any) {
-        console.error("خطا در دریافت اطلاعات کلی:", error.response?.data?.message || error.message);
+        const errorMessage = error.response?.data?.message || error.message || 'یک خطای ناشناخته رخ داد.';
+        setGlobalAlert({ messages: ['خطا در دریافت اطلاعات کلی.', errorMessage], type: 'error' });
+        console.error("خطا در دریافت اطلاعات کلی:", errorMessage);
     } finally {
         setIsProcessing(false);
     }
@@ -175,6 +188,87 @@ const App: React.FC = () => {
         fetchAllData();
     }
   }, [currentUser, fetchAllData]);
+  
+  // Realtime data synchronization
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const createRealtimeHandler = <T extends { id: number }>(
+        setState: React.Dispatch<React.SetStateAction<T[]>>
+    ) => (payload: any) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        
+        const processRecord = (record: any) => convertKeysToCamelCase(record) as T;
+
+        if (eventType === 'INSERT') {
+            setState(prev => [...prev.filter(item => item.id !== newRecord.id), processRecord(newRecord)]);
+        } else if (eventType === 'UPDATE') {
+            setState(prev => prev.map(item => item.id === newRecord.id ? processRecord(newRecord) : item));
+        } else if (eventType === 'DELETE') {
+            const id = oldRecord.id;
+            setState(prev => prev.filter(item => item.id !== id));
+        }
+    };
+    
+    const handleTicketChange = (payload: any) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        const processTicket = (record: any) => convertKeysToCamelCase(record) as Ticket;
+
+        if (eventType === 'INSERT') {
+            const newTicket = processTicket(newRecord);
+            setTickets(prev => [...prev.filter(t => t.id !== newTicket.id), newTicket]);
+        } else if (eventType === 'UPDATE') {
+            const updatedTicket = processTicket(newRecord);
+            setTickets(prev => prev.map(t => t.id === updatedTicket.id ? updatedTicket : t));
+            setReferrals(prev => prev.map(r => r.ticketId === updatedTicket.id ? { ...r, ticket: updatedTicket } : r));
+        } else if (eventType === 'DELETE') {
+            const id = oldRecord.id;
+            setTickets(prev => prev.filter(t => t.id !== id));
+            setReferrals(prev => prev.filter(r => r.ticketId !== id));
+        }
+    };
+    
+    const handleReferralChange = async (payload: any) => {
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        
+        if (eventType === 'INSERT' || eventType === 'UPDATE') {
+            const recordId = newRecord.id;
+            try {
+                const { data } = await api.get(`/referrals?id=eq.${recordId}&select=*,ticket:tickets(*)`);
+                if (data && data.length > 0) {
+                    const fullReferral = convertKeysToCamelCase(data[0]);
+                    if (fullReferral.ticket) {
+                        fullReferral.ticket = convertKeysToCamelCase(fullReferral.ticket);
+                    }
+                    
+                    if (eventType === 'INSERT') {
+                        setReferrals(prev => [...prev.filter(r => r.id !== fullReferral.id), fullReferral]);
+                    } else { // UPDATE
+                        setReferrals(prev => prev.map(r => r.id === fullReferral.id ? fullReferral : r));
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch full referral on realtime update:", error);
+            }
+        } else if (eventType === 'DELETE') {
+            const id = oldRecord.id;
+            setReferrals(prev => prev.filter(r => r.id !== id));
+        }
+    };
+
+    const channels: RealtimeChannel[] = [];
+    channels.push(supabase.channel('public:users').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, createRealtimeHandler(setUsers)).subscribe());
+    channels.push(supabase.channel('public:customers').on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, createRealtimeHandler(setCustomers)).subscribe());
+    channels.push(supabase.channel('public:purchase_contracts').on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_contracts' }, createRealtimeHandler(setPurchaseContracts)).subscribe());
+    channels.push(supabase.channel('public:support_contracts').on('postgres_changes', { event: '*', schema: 'public', table: 'support_contracts' }, createRealtimeHandler(setSupportContracts)).subscribe());
+    channels.push(supabase.channel('public:tickets').on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, handleTicketChange).subscribe());
+    channels.push(supabase.channel('public:referrals').on('postgres_changes', { event: '*', schema: 'public', table: 'referrals' }, handleReferralChange).subscribe());
+    // FIX: Removed realtime subscriptions for HR tables.
+
+    return () => {
+        channels.forEach(channel => supabase.removeChannel(channel));
+    };
+}, [currentUser]);
 
 
   const handleLogin = async (username: string, password: string): Promise<boolean> => {
@@ -210,293 +304,323 @@ const App: React.FC = () => {
     setActivePage('dashboard');
   };
 
-  // CRUD Handlers
-  const handleSaveUser = async (user: User | Omit<User, 'id'>) => {
+  // --- START CRUD Handlers (wrapped in useCallback) ---
+  
+  // FIX: Updated user handlers to manually update state, making the UI responsive
+  // even if realtime is not configured correctly (e.g., due to RLS policies).
+  const handleSaveUser = useCallback(async (user: User | Omit<User, 'id'>) => {
     setIsProcessing(true);
     try {
         const payload = convertKeysToSnakeCase(user);
-        if ('id' in user) {
+        const isEditing = 'id' in user;
+        if (isEditing) {
             const { id, ...updateData } = payload;
-            await api.patch(`/users?id=eq.${id}`, updateData);
+            const { data } = await api.patch(`/users?id=eq.${id}`, updateData, { headers: { 'Prefer': 'return=representation' } });
+            const updatedUser = convertKeysToCamelCase(data[0]);
+            setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
         } else {
-            await api.post('/users', payload, { headers: { 'Prefer': 'return=minimal' } });
+            const { data } = await api.post('/users', payload, { headers: { 'Prefer': 'return=representation' } });
+            const newUser = convertKeysToCamelCase(data[0]);
+            setUsers(prev => [...prev, newUser]);
         }
-        await fetchAllData();
-    } catch (error: any) { console.error("خطا در ذخیره کاربر:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
-  };
-  const handleDeleteUser = async (userId: number) => {
-    setIsProcessing(true);
-    try { await api.delete(`/users?id=eq.${userId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف کاربر:", error); } finally { setIsProcessing(false); }
-  };
-  const handleDeleteManyUsers = async (userIds: number[]) => {
-    setIsProcessing(true);
-    try { await api.delete(`/users?id=in.(${userIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف کاربران:", error); } finally { setIsProcessing(false); }
-  };
+        setGlobalAlert({ messages: [`کاربر با موفقیت ${isEditing ? 'ویرایش' : 'ذخیره'} شد.`], type: 'success' });
+    } catch (error: any) { 
+      const errorMessage = error.response?.data?.message || error.message || 'یک خطای ناشناخته رخ داد.';
+      setGlobalAlert({ messages: ['خطا در ذخیره کاربر.', errorMessage], type: 'error' });
+      console.error("خطا در ذخیره کاربر:", errorMessage);
+    } finally { setIsProcessing(false); }
+  }, []);
   
-  const handleSaveCustomer = async (customer: Customer | Omit<Customer, 'id'>) => {
+  const handleDeleteUser = useCallback(async (userId: number) => {
+    if (userId === currentUser?.id) {
+        setGlobalAlert({ messages: ['شما نمی‌توانید حساب کاربری خود را حذف کنید.'], type: 'error' });
+        return;
+    }
     setIsProcessing(true);
-    try {
-        const payload = convertKeysToSnakeCase(customer);
-        if ('id' in customer) {
-            const { id, ...updateData } = payload;
-            await api.patch(`/customers?id=eq.${id}`, updateData);
-        } else {
-            await api.post('/customers', payload, { headers: { 'Prefer': 'return=minimal' } });
-        }
-        await fetchAllData();
-    } catch (error: any) { console.error("خطا در ذخیره مشتری:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
-  };
-  const handleDeleteCustomer = async (customerId: number) => {
-    setIsProcessing(true);
-    try { await api.delete(`/customers?id=eq.${customerId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف مشتری:", error); } finally { setIsProcessing(false); }
-  };
-  const handleDeleteManyCustomers = async (customerIds: number[]) => {
-    setIsProcessing(true);
-    try { await api.delete(`/customers?id=in.(${customerIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف مشتریان:", error); } finally { setIsProcessing(false); }
-  };
+    try { 
+      const userToDelete = users.find(u => u.id === userId);
+      if (!userToDelete) throw new Error('کاربر برای حذف یافت نشد.');
+      const usernameToDelete = userToDelete.username;
 
-    const handleSaveTicket = async (ticketData: Ticket | Omit<Ticket, 'id'>) => {
+      await api.delete(`/referrals?referred_by_username=eq.${usernameToDelete}`);
+      await api.delete(`/referrals?referred_to_username=eq.${usernameToDelete}`);
+      await api.patch(`/tickets?assigned_to_username=eq.${usernameToDelete}`, { assigned_to_username: null });
+      await api.patch(`/purchase_contracts?salesperson_username=eq.${usernameToDelete}`, { salesperson_username: null });
+      await api.patch(`/purchase_contracts?crm_responsible_username=eq.${usernameToDelete}`, { crm_responsible_username: null });
+      await api.delete(`/users?id=eq.${userId}`); 
+      
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setGlobalAlert({ messages: ['کاربر با موفقیت حذف شد.'], type: 'success' });
+    } catch (error: any) { 
+      const errorMessage = error.response?.data?.message || error.message || 'یک خطای ناشناخته رخ داد.';
+      setGlobalAlert({ messages: ['خطا در حذف کاربر.', errorMessage], type: 'error' });
+    } finally { setIsProcessing(false); }
+  }, [users, currentUser]);
+
+  const handleDeleteManyUsers = useCallback(async (userIds: number[]) => {
+    if (userIds.includes(currentUser?.id ?? -1)) {
+        setGlobalAlert({ messages: ['شما نمی‌توانید حساب کاربری خود را در حذف گروهی انتخاب کنید.'], type: 'error' });
+        return;
+    }
     setIsProcessing(true);
-    try {
-      let savedTicket: Ticket;
-      if ('id' in ticketData) {
-        const { id, ...updateData } = convertKeysToSnakeCase(ticketData);
-        const { data } = await api.patch(`/tickets?id=eq.${id}`, updateData, { headers: { 'Prefer': 'return=representation' } });
-        savedTicket = convertKeysToCamelCase(data[0]);
-      } else {
-        const creationTime = new Date();
-        const editableUntil = new Date(creationTime.getTime() + 15 * 60 * 1000).toISOString();
-        const payload = {
-          ...convertKeysToSnakeCase(ticketData),
-          ticket_number: `T-${Date.now().toString().slice(-5)}`,
-          creation_date_time: creationTime.toISOString(),
-          last_update_date: creationTime.toISOString(),
-          editable_until: editableUntil,
-        };
-        const { data } = await api.post('/tickets', payload, { headers: { 'Prefer': 'return=representation' } });
-        savedTicket = convertKeysToCamelCase(data[0]);
+    try { 
+      const usersToDelete = users.filter(u => userIds.includes(u.id));
+      if (usersToDelete.length === 0) {
+        setIsProcessing(false);
+        return;
       }
-      await fetchAllData();
-    } catch (error: any) { console.error("خطا در ذخیره تیکت:", error.response?.data || error.message); } finally { setIsProcessing(false); }
+      const usernamesToDelete = usersToDelete.map(u => u.username);
+      const usernamesQuery = `in.(${usernamesToDelete.join(',')})`;
+      const userIdsQuery = `in.(${userIds.join(',')})`;
+
+      await api.delete(`/referrals?referred_by_username=${usernamesQuery}`);
+      await api.delete(`/referrals?referred_to_username=${usernamesQuery}`);
+      await api.patch(`/tickets?assigned_to_username=${usernamesQuery}`, { assigned_to_username: null });
+      await api.patch(`/purchase_contracts?salesperson_username=${usernamesQuery}`, { salesperson_username: null });
+      await api.patch(`/purchase_contracts?crm_responsible_username=${usernamesQuery}`, { crm_responsible_username: null });
+      await api.delete(`/users?id=${userIdsQuery}`); 
+      
+      setUsers(prev => prev.filter(u => !userIds.includes(u.id)));
+      setGlobalAlert({ messages: [`${toPersianDigits(userIds.length)} کاربر با موفقیت حذف شدند.`], type: 'success' });
+    } catch (error: any) { 
+      const errorMessage = error.response?.data?.message || error.message || 'یک خطای ناشناخته رخ داد.';
+      setGlobalAlert({ messages: ['خطا در حذف گروهی کاربران.', errorMessage], type: 'error' });
+    } finally { setIsProcessing(false); }
+  }, [users, currentUser]);
+
+  // FIX: Refactored generic CRUD handlers to accept a setState function,
+  // ensuring immediate UI updates after successful API calls.
+  const useGenericCrudHandlers = <T extends {id: number}>(
+    entityName: string, 
+    endpoint: string,
+    setState: React.Dispatch<React.SetStateAction<T[]>>
+  ) => {
+    const onSave = useCallback(async (data: T | Omit<T, 'id'>) => {
+        setIsProcessing(true);
+        try {
+            const payload = convertKeysToSnakeCase(data);
+            const isEditing = 'id' in data;
+            if (isEditing) {
+                const { id, ...updateData } = payload;
+                const { data: updatedData } = await api.patch(`/${endpoint}?id=eq.${id}`, updateData, { headers: { 'Prefer': 'return=representation' } });
+                const updatedItem = convertKeysToCamelCase(updatedData[0]);
+                setState(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+            } else {
+                const { data: newData } = await api.post(`/${endpoint}`, payload, { headers: { 'Prefer': 'return=representation' } });
+                const newItem = convertKeysToCamelCase(newData[0]);
+                setState(prev => [...prev, newItem]);
+            }
+            setGlobalAlert({ messages: [`${entityName} با موفقیت ${isEditing ? 'ویرایش' : 'ذخیره'} شد.`], type: 'success' });
+        } catch (error: any) { 
+            const errorMessage = error.response?.data?.message || error.message;
+            setGlobalAlert({ messages: [`خطا در ذخیره ${entityName}.`, errorMessage], type: 'error' });
+        } finally { setIsProcessing(false); }
+    }, [entityName, endpoint, setState]);
+
+    const onDelete = useCallback(async (id: number) => {
+        setIsProcessing(true);
+        try {
+            await api.delete(`/${endpoint}?id=eq.${id}`);
+            setState(prev => prev.filter(item => item.id !== id));
+            setGlobalAlert({ messages: [`${entityName} با موفقیت حذف شد.`], type: 'success' });
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message;
+            setGlobalAlert({ messages: [`خطا در حذف ${entityName}.`, errorMessage], type: 'error' });
+        } finally { setIsProcessing(false); }
+    }, [entityName, endpoint, setState]);
+
+    const onDeleteMany = useCallback(async (ids: number[]) => {
+        setIsProcessing(true);
+        try {
+            await api.delete(`/${endpoint}?id=in.(${ids.join(',')})`);
+            setState(prev => prev.filter(item => !ids.includes(item.id)));
+            setGlobalAlert({ messages: [`${toPersianDigits(ids.length)} ${entityName} با موفقیت حذف شدند.`], type: 'success' });
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message;
+            setGlobalAlert({ messages: [`خطا در حذف گروهی ${entityName}.`, errorMessage], type: 'error' });
+        } finally { setIsProcessing(false); }
+    }, [entityName, endpoint, setState]);
+
+    return { onSave, onDelete, onDeleteMany };
   };
 
-  const handleDeleteTicket = async (ticketId: number) => {
-    setIsProcessing(true);
-    try { await api.delete(`/tickets?id=eq.${ticketId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف تیکت:", error); } finally { setIsProcessing(false); }
-  };
+  const { onSave: handleSaveCustomer, onDelete: handleDeleteCustomer, onDeleteMany: handleDeleteManyCustomers } = useGenericCrudHandlers<Customer>('مشتری', 'customers', setCustomers);
+  const { onSave: handleSavePurchaseContract, onDelete: handleDeletePurchaseContract, onDeleteMany: handleDeleteManyPurchaseContracts } = useGenericCrudHandlers<PurchaseContract>('قرارداد فروش', 'purchase_contracts', setPurchaseContracts);
+  const { onSave: handleSaveSupportContract, onDelete: handleDeleteSupportContract, onDeleteMany: handleDeleteManySupportContracts } = useGenericCrudHandlers<SupportContract>('قرارداد پشتیبانی', 'support_contracts', setSupportContracts);
+  // FIX: Removed unused HR CRUD handlers.
 
-  const handleReferTicket = async (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => {
+  const { onSave: handleGenericTicketSave, onDelete: handleDeleteTicket } = useGenericCrudHandlers<Ticket>('تیکت', 'tickets', setTickets);
+
+  const handleSaveTicket = useCallback(async (ticketData: Ticket | Omit<Ticket, 'id'>) => {
     setIsProcessing(true);
     try {
-        // Find the full ticket object from state to check its status and work session
-        const ticketToRefer = tickets.find(t => t.id === ticketId) || referrals.find(r => r.ticket.id === ticketId)?.ticket;
-        if (!ticketToRefer) throw new Error("تیکت برای ارجاع یافت نشد");
+        let payload: Partial<Ticket> & { id?: number } = { ...ticketData };
+        const isEditing = 'id' in payload;
 
-        // 1. Create referral record
-        await api.post('/referrals', {
+        if (!isEditing) {
+            const now = new Date();
+            const lastTicketNumber = tickets.reduce((max, t) => Math.max(max, parseInt(t.ticketNumber.split('-')[1], 10) || 0), 0);
+            payload = {
+                ...payload,
+                ticketNumber: `T-${lastTicketNumber + 1}`,
+                creationDateTime: formatJalaaliDateTime(now),
+                lastUpdateDate: formatJalaaliDateTime(now),
+                editableUntil: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+            };
+        } else {
+            payload = { ...payload, lastUpdateDate: formatJalaaliDateTime(new Date()) };
+        }
+        await handleGenericTicketSave(payload as Ticket);
+
+    } catch (error: any) {
+        // Error is handled in the generic handler
+    } finally { setIsProcessing(false); }
+  }, [tickets, handleGenericTicketSave]);
+  
+  const handleReferTicket = useCallback(async (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => {
+    setIsProcessing(true);
+    try {
+        const { data: updatedTicketData } = await api.patch(`/tickets?id=eq.${ticketId}`, { status: 'ارجاع شده', assigned_to_username: referredToUsername }, { headers: { 'Prefer': 'return=representation' }});
+        const updatedTicket = convertKeysToCamelCase(updatedTicketData[0]);
+        setTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t));
+        
+        const referralPayload = {
             ticket_id: ticketId,
             referred_by_username: referredBy.username,
             referred_to_username: referredToUsername,
             referral_date: new Date().toISOString()
-        }, { headers: { 'Prefer': 'return=minimal' } });
-        
-        // 2. Prepare payload for ticket update. Always set status to 'referred'.
-        const updatePayload: any = {
-            assigned_to_username: referredToUsername,
-            status: 'ارجاع شده',
-            last_update_date: new Date().toISOString()
         };
+        await api.post('/referrals', referralPayload);
+        // Rely on realtime to update referrals list. It's less critical for immediate feedback.
+        setGlobalAlert({ messages: [`تیکت با موفقیت ارجاع داده شد.`], type: 'success' });
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.message || error.message;
+        setGlobalAlert({ messages: ['خطا در ارجاع تیکت.', errorMessage], type: 'error' });
+    } finally { setIsProcessing(false); }
+  }, []);
 
-        // 3. If ticket was in progress, stop the timer session for the previous user.
-        if (ticketToRefer.status === 'در حال پیگیری' && ticketToRefer.workSessionStartedAt) {
-            const sessionStart = new Date(ticketToRefer.workSessionStartedAt).getTime();
-            const now = new Date().getTime();
-            const duration = Math.floor((now - sessionStart) / 1000);
-            
-            updatePayload.work_session_started_at = null;
-            updatePayload.total_work_duration = (ticketToRefer.totalWorkDuration || 0) + duration;
-        }
-
-        // 4. Update ticket
-        await api.patch(`/tickets?id=eq.${ticketId}`, updatePayload);
-        
-        await fetchAllData();
-    } catch (error: any) { 
-        console.error("خطا در ارجاع تیکت:", error.response?.data?.message || error.message); 
-    } finally { 
-        setIsProcessing(false); 
-    }
-  };
-
-  const handleToggleWork = async (ticketId: number) => {
-    setIsProcessing(true);
-    try {
+  const handleToggleWork = useCallback(async (ticketId: number) => {
+      setIsProcessing(true);
+      try {
         const ticket = tickets.find(t => t.id === ticketId) || referrals.find(r => r.ticket.id === ticketId)?.ticket;
-        if (!ticket) throw new Error("تیکت یافت نشد");
-        
-        let updatePayload: any;
-        if (ticket.status === 'در حال پیگیری') { // Stop work
-            const sessionStart = new Date(ticket.workSessionStartedAt!).getTime();
-            const now = new Date().getTime();
-            const duration = Math.floor((now - sessionStart) / 1000);
-            updatePayload = {
-                status: 'اتمام یافته',
-                work_session_started_at: null,
-                total_work_duration: ticket.totalWorkDuration + duration,
-                last_update_date: new Date().toISOString()
-            };
-        } else { // Start work
-            updatePayload = {
-                status: 'در حال پیگیری',
-                work_session_started_at: new Date().toISOString(),
-                last_update_date: new Date().toISOString()
-            };
-        }
-        await api.patch(`/tickets?id=eq.${ticketId}`, updatePayload);
-        await fetchAllData();
-    } catch (error: any) { console.error("خطا در تغییر وضعیت کار:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
-  };
-  
-  const handleSavePurchaseContract = async (contract: PurchaseContract | Omit<PurchaseContract, 'id'>) => {
-    setIsProcessing(true);
-    try {
-        const payload = convertKeysToSnakeCase(contract);
-        if ('id' in contract) {
-            const { id, ...updateData } = payload;
-            await api.patch(`/purchase_contracts?id=eq.${id}`, updateData);
+        if (!ticket) return;
+
+        let newStatus: TicketStatus;
+        let workSessionStartedAt: string | null = ticket.workSessionStartedAt || null;
+        let totalWorkDuration = ticket.totalWorkDuration || 0;
+
+        if (ticket.status === 'در حال پیگیری') {
+            newStatus = 'اتمام یافته';
+            if (workSessionStartedAt) {
+                totalWorkDuration += Math.floor((new Date().getTime() - new Date(workSessionStartedAt).getTime()) / 1000);
+            }
+            workSessionStartedAt = null;
         } else {
-            await api.post('/purchase_contracts', payload, { headers: { 'Prefer': 'return=minimal' } });
+            newStatus = 'در حال پیگیری';
+            workSessionStartedAt = new Date().toISOString();
         }
-        await fetchAllData();
-    } catch (error: any) { console.error("خطا در ذخیره قرارداد فروش:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
-  };
-  const handleDeletePurchaseContract = async (contractId: number) => {
-    setIsProcessing(true);
-    try { await api.delete(`/purchase_contracts?id=eq.${contractId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف قرارداد فروش:", error); } finally { setIsProcessing(false); }
-  };
-  const handleDeleteManyPurchaseContracts = async (contractIds: number[]) => {
-    setIsProcessing(true);
-    try { await api.delete(`/purchase_contracts?id=in.(${contractIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف قراردادهای فروش:", error); } finally { setIsProcessing(false); }
-  };
+
+        const { data: updatedTicketData } = await api.patch(`/tickets?id=eq.${ticketId}`, { status: newStatus, work_session_started_at: workSessionStartedAt, total_work_duration: totalWorkDuration }, { headers: { 'Prefer': 'return=representation' }});
+        const updatedTicket = convertKeysToCamelCase(updatedTicketData[0]);
+        setTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t));
+        setGlobalAlert({ messages: [`وضعیت تیکت با موفقیت تغییر کرد.`], type: 'success' });
+      } catch(e) {
+         setGlobalAlert({ messages: ['خطا در تغییر وضعیت تیکت.'], type: 'error' });
+      } finally { setIsProcessing(false); }
+  }, [tickets, referrals]);
+
+  const handleReopenTicket = useCallback(async (ticketId: number) => {
+      setIsProcessing(true);
+      try {
+        const { data: updatedTicketData } = await api.patch(`/tickets?id=eq.${ticketId}`, { status: 'انجام نشده' }, { headers: { 'Prefer': 'return=representation' }});
+        const updatedTicket = convertKeysToCamelCase(updatedTicketData[0]);
+        setTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t));
+        setGlobalAlert({ messages: ['تیکت با موفقیت مجدداً باز شد.'], type: 'success' });
+      } catch (e) {
+        setGlobalAlert({ messages: ['خطا در باز کردن مجدد تیکت.'], type: 'error' });
+      } finally { setIsProcessing(false); }
+  }, []);
+
+  const handleExtendEditTime = useCallback(async (ticketId: number) => {
+      setIsProcessing(true);
+      try {
+        const newEditableUntil = new Date(new Date().getTime() + 30 * 60 * 1000).toISOString();
+        const { data: updatedTicketData } = await api.patch(`/tickets?id=eq.${ticketId}`, { editable_until: newEditableUntil }, { headers: { 'Prefer': 'return=representation' }});
+        const updatedTicket = convertKeysToCamelCase(updatedTicketData[0]);
+        setTickets(prev => prev.map(t => t.id === ticketId ? updatedTicket : t));
+        setGlobalAlert({ messages: ['زمان ویرایش تیکت با موفقیت تمدید شد.'], type: 'success' });
+      } catch (e) {
+        setGlobalAlert({ messages: ['خطا در تمدید زمان ویرایش.'], type: 'error' });
+      } finally { setIsProcessing(false); }
+  }, []);
   
-  const handleSaveSupportContract = async (contract: SupportContract | Omit<SupportContract, 'id'>) => {
-     setIsProcessing(true);
-    try {
-        const payload = convertKeysToSnakeCase(contract);
-        if ('id' in contract) {
-            const { id, ...updateData } = payload;
-            await api.patch(`/support_contracts?id=eq.${id}`, updateData);
-        } else {
-            await api.post('/support_contracts', payload, { headers: { 'Prefer': 'return=minimal' } });
-        }
-        await fetchAllData();
-    } catch (error: any) { console.error("خطا در ذخیره قرارداد پشتیبانی:", error.response?.data?.message || error.message); } finally { setIsProcessing(false); }
-  };
-  const handleDeleteSupportContract = async (contractId: number) => {
-    setIsProcessing(true);
-    try { await api.delete(`/support_contracts?id=eq.${contractId}`); await fetchAllData(); } catch (error) { console.error("خطای حذف قرارداد پشتیبانی:", error); } finally { setIsProcessing(false); }
-  };
-  const handleDeleteManySupportContracts = async (contractIds: number[]) => {
-    setIsProcessing(true);
-    try { await api.delete(`/support_contracts?id=in.(${contractIds.join(',')})`); await fetchAllData(); } catch (error) { console.error("خطای حذف قراردادهای پشتیبانی:", error); } finally { setIsProcessing(false); }
-  };
-  
-  const handleReopenTicket = async (ticketId: number) => {
-    setIsProcessing(true);
-    try {
-      await api.patch(`/tickets?id=eq.${ticketId}`, {
-        status: 'انجام نشده', // Reopen to 'Not Done' status
-        last_update_date: new Date().toISOString(),
-        work_session_started_at: null, // Reset any previous work session
-      });
-      await fetchAllData();
-    } catch (error: any) {
-      console.error("خطا در بازگشایی تیکت:", error.response?.data?.message || error.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  // FIX: Removed unused HR handlers.
 
-  const handleExtendTicketEditTime = async (ticketId: number) => {
-    setIsProcessing(true);
-    try {
-      const newEditableUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      await api.patch(`/tickets?id=eq.${ticketId}`, {
-        editable_until: newEditableUntil,
-        last_update_date: new Date().toISOString(),
-      });
-      await fetchAllData();
-    } catch (error: any) {
-      console.error("خطا در تمدید زمان ویرایش تیکت:", error.response?.data?.message || error.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
-  const handleRecordAttendance = (type: AttendanceType) => { /* Mock */ };
-  const handleSaveLeaveRequest = (request: LeaveRequest | Omit<LeaveRequest, 'id'>) => { /* Mock */ };
-  const handleLeaveStatusChange = (requestId: number, newStatus: LeaveRequestStatus) => { /* Mock */ };
-  const handleSaveMission = (mission: Mission | Omit<Mission, 'id'>) => { /* Mock */ };
+  // --- END CRUD Handlers ---
 
-  const renderPage = useCallback(() => {
+  const renderPage = () => {
     if (!currentUser) return null;
-    // FIX: Changed JSX.Element to React.ReactElement to resolve "Cannot find namespace 'JSX'" error.
-    const pageComponents: { [key in MenuItemId]?: React.ReactElement } = {
-        'dashboard': <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />,
-        'users': <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteManyUsers} currentUser={currentUser} />,
-        'customers': <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteManyCustomers} currentUser={currentUser} />,
-        'contracts': (
+    switch (activePage) {
+      case 'dashboard':
+        return <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />;
+      case 'users':
+        return <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteManyUsers} currentUser={currentUser} />;
+      case 'customers':
+        return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteManyCustomers} currentUser={currentUser} />;
+      case 'contracts':
+        return (
             <div className="flex-1 bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-                <main className="max-w-7xl mx-auto space-y-8">
+                <main className="max-w-7xl mx-auto space-y-12">
                     <PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeleteManyPurchaseContracts} currentUser={currentUser} />
                     <SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteManySupportContracts} currentUser={currentUser} />
                 </main>
             </div>
-        ),
-        'tickets': <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} currentUser={currentUser} onReopenTicket={handleReopenTicket} onExtendEditTime={handleExtendTicketEditTime} />,
-        'referrals': <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onExtendEditTime={handleExtendTicketEditTime} />,
-        'reports': <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} currentUser={currentUser} />,
-        'attendance': <AttendancePage currentUser={currentUser} records={attendanceRecords} onRecord={handleRecordAttendance} />,
-        'leave': <LeavePage currentUser={currentUser} leaveRequests={leaveRequests} users={users} onSave={handleSaveLeaveRequest} onStatusChange={handleLeaveStatusChange} />,
-        'missions': <MissionsPage currentUser={currentUser} missions={missions} users={users} onSave={handleSaveMission} />,
-    };
-    return pageComponents[activePage] || null;
-  }, [activePage, currentUser, users, customers, purchaseContracts, supportContracts, tickets, referrals, attendanceRecords, leaveRequests, missions, fetchAllData]);
-
+        );
+      case 'tickets':
+        return <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} onReopenTicket={handleReopenTicket} onExtendEditTime={handleExtendEditTime} currentUser={currentUser} />;
+      case 'reports':
+        return <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} currentUser={currentUser} />;
+      case 'referrals':
+        return <ReferralsPage referrals={referrals} currentUser={currentUser} users={users} customers={customers} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onExtendEditTime={handleExtendEditTime} />;
+      // FIX: Removed unused HR page cases.
+      default:
+        return <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />;
+    }
+  };
+  
   if (isLoading) {
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-            <span className="loader" style={{borderColor: '#0891b2', borderStyle: 'solid'}}></span>
-        </div>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-50">
+        <span className="loader !border-cyan-600"></span>
+      </div>
     );
   }
 
-  if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
   return (
-    <div className="flex h-screen bg-gray-100" dir="rtl">
-       {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-30 lg:hidden" aria-hidden="true" />}
-      <Sidebar
-        user={currentUser}
-        activePage={activePage}
-        setActivePage={(page) => setActivePage(page as MenuItemId)}
-        isSidebarOpen={isSidebarOpen}
-        onLogout={handleLogout}
-        onClose={() => setIsSidebarOpen(false)}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-         <Header
-          pageTitle={pageTitles[activePage]}
-          onToggleSidebar={() => setIsSidebarOpen(true)}
-        />
-        <div className="flex-1 flex" style={{ overflow: 'hidden' }}>
-          {renderPage()}
-        </div>
-      </div>
+    <>
       <ProcessingOverlay isVisible={isProcessing} />
-    </div>
+      <Alert messages={globalAlert?.messages || []} type={globalAlert?.type} onClose={() => setGlobalAlert(null)} />
+      {currentUser ? (
+        <div className="h-screen flex overflow-hidden bg-gray-100">
+          <Sidebar 
+            activePage={activePage} 
+            setActivePage={(page) => setActivePage(page as MenuItemId)} 
+            isSidebarOpen={isSidebarOpen} 
+            user={currentUser} 
+            onLogout={handleLogout}
+            onClose={() => setIsSidebarOpen(false)}
+          />
+           {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/40 z-30 lg:hidden"></div>}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Header pageTitle={pageTitles[activePage]} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+            {renderPage()}
+          </div>
+        </div>
+      ) : (
+        <LoginPage onLogin={handleLogin} />
+      )}
+    </>
   );
 };
 

@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel, Referral } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Ticket, Customer, User, TicketStatus, TicketPriority, TicketType, TicketChannel, Referral, SupportContract } from '../types';
 import Modal from './Modal';
 import Alert from './Alert';
-import { formatJalaaliDateTime } from '../utils/dateFormatter';
+import { formatJalaaliDateTime, getCalculatedStatus } from '../utils/dateFormatter';
 import { FileUploadIcon } from './icons/FileUploadIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { PaperClipIcon } from './icons/PaperClipIcon';
 import ReferralHistoryTimeline from './ReferralHistoryTimeline';
 import SearchableSelect from './SearchableSelect';
+import ConfirmationModal from './ConfirmationModal';
 
 interface TicketFormModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface TicketFormModalProps {
   users: User[];
   currentUser: User;
   referrals: Referral[];
+  supportContracts: SupportContract[];
 }
 
 // FIX: Add missing ticket types to the options so they appear in the form dropdown.
@@ -53,10 +55,11 @@ const inputClass = "block w-full bg-gray-50 border border-gray-300 rounded-md sh
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 const textareaClass = `${inputClass} min-h-[120px]`;
 
-const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSave, ticket, customers, users, currentUser, referrals }) => {
+const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSave, ticket, customers, users, currentUser, referrals, supportContracts }) => {
   const [formData, setFormData] = useState<Ticket | Omit<Ticket, 'id'>>(() => getInitialState(currentUser));
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [confirmationData, setConfirmationData] = useState<Ticket | Omit<Ticket, 'id'> | null>(null);
 
   const isReadOnly = ticket ? (new Date().getTime() > new Date(ticket.editableUntil).getTime() || ticket.status === 'اتمام یافته') : false;
   const modalTitle = ticket 
@@ -77,6 +80,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             setFormData(getInitialState(currentUser));
             setNewAttachments([]);
             setErrors([]);
+            setConfirmationData(null);
         }, 300);
     }
   }, [ticket, isOpen, currentUser]);
@@ -143,149 +147,195 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         lastUpdateDate: formatJalaaliDateTime(new Date()),
         attachments: [...formData.attachments, ...newAttachments.map(f => f.name)],
     };
+
+    // Check for support contract only when creating a new ticket
+    if (!ticket && formData.customerId) {
+        const hasActiveContract = supportContracts.some(
+            c => c.customerId === formData.customerId && getCalculatedStatus(c.endDate, c.status) === 'فعال'
+        );
+
+        if (!hasActiveContract) {
+            setConfirmationData(dataToSave); // Show confirmation modal instead of saving
+            return; // Stop the saving process here
+        }
+    }
+    
     onSave(dataToSave);
+  };
+
+  const handleConfirmSave = () => {
+    if (confirmationData) {
+        onSave(confirmationData);
+    }
+    setConfirmationData(null); // Close confirmation modal
   };
   
   const allAttachmentNames = [...formData.attachments, ...newAttachments.map(f => f.name)];
   
-  const searchableOptions = {
+  const searchableOptions = useMemo(() => {
+    const customerOptions = customers.map(c => {
+      const hasActiveContract = supportContracts.some(
+        sc => sc.customerId === c.id && getCalculatedStatus(sc.endDate, sc.status) === 'فعال'
+      );
+      return {
+        value: c.id,
+        label: `${c.companyName} (${c.firstName} ${c.lastName})`,
+        className: !hasActiveContract ? 'text-red-600 font-semibold' : ''
+      };
+    });
+
+    return {
       titles: ticketTypeOptions.map(t => ({ value: t, label: t })),
-      customers: customers.map(c => ({ value: c.id, label: `${c.companyName} (${c.firstName} ${c.lastName})` })),
+      customers: customerOptions,
       users: users.map(u => ({ value: u.username, label: `${u.firstName} ${u.lastName}` })),
       types: ticketTypeOptions.map(t => ({ value: t, label: t })),
-  };
+    };
+  }, [customers, users, supportContracts]);
+
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="4xl">
-      <form onSubmit={handleSubmit}>
-        <div className="p-6 border-b">
-          <h3 className="text-lg font-medium leading-6 text-cyan-600">{modalTitle}</h3>
-           {isReadOnly && <p className="text-sm text-amber-600 mt-1">زمان ویرایش این تیکت به پایان رسیده یا تیکت اتمام یافته است و در حالت فقط-خواندنی نمایش داده می‌شود.</p>}
-        </div>
-
-        <div className="p-6 space-y-6">
-          <Alert messages={errors} onClose={() => setErrors([])} />
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
-            <div>
-              <label htmlFor="title" className={labelClass}>عنوان تیکت</label>
-              <SearchableSelect
-                options={searchableOptions.titles}
-                value={formData.title}
-                onChange={value => setFormData(f => ({ ...f, title: String(value) }))}
-                placeholder="انتخاب یا جستجوی عنوان..."
-                disabled={isReadOnly}
-              />
-            </div>
-            <div>
-              <label htmlFor="customerId" className={labelClass}>مشتری</label>
-              <SearchableSelect
-                options={searchableOptions.customers}
-                value={formData.customerId}
-                onChange={value => setFormData(f => ({ ...f, customerId: Number(value) }))}
-                placeholder="انتخاب یا جستجوی مشتری..."
-                disabled={isReadOnly}
-              />
-            </div>
-            <div>
-              <label htmlFor="assignedToUsername" className={labelClass}>کاربر مسئول</label>
-              <SearchableSelect
-                options={searchableOptions.users}
-                value={formData.assignedToUsername}
-                onChange={value => setFormData(f => ({ ...f, assignedToUsername: String(value) }))}
-                placeholder="انتخاب یا جستجوی کاربر..."
-                disabled={isReadOnly}
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label htmlFor="description" className={labelClass}>شرح کامل</label>
-            <textarea id="description" name="description" value={formData.description} onChange={handleChange} className={textareaClass} disabled={isReadOnly}></textarea>
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} size="4xl">
+        <form onSubmit={handleSubmit}>
+          <div className="p-6 border-b">
+            <h3 className="text-lg font-medium leading-6 text-cyan-600">{modalTitle}</h3>
+            {isReadOnly && <p className="text-sm text-amber-600 mt-1">زمان ویرایش این تیکت به پایان رسیده یا تیکت اتمام یافته است و در حالت فقط-خواندنی نمایش داده می‌شود.</p>}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
-            <div>
-              <label htmlFor="priority" className={labelClass}>اولویت</label>
-              <select id="priority" name="priority" value={formData.priority} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
-                {(['کم', 'متوسط', 'اضطراری'] as TicketPriority[]).map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+          <div className="p-6 space-y-6">
+            <Alert messages={errors} onClose={() => setErrors([])} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
+              <div>
+                <label htmlFor="title" className={labelClass}>عنوان تیکت</label>
+                <SearchableSelect
+                  options={searchableOptions.titles}
+                  value={formData.title}
+                  onChange={value => setFormData(f => ({ ...f, title: String(value) }))}
+                  placeholder="انتخاب یا جستجوی عنوان..."
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div>
+                <label htmlFor="customerId" className={labelClass}>مشتری</label>
+                <SearchableSelect
+                  options={searchableOptions.customers}
+                  value={formData.customerId}
+                  onChange={value => setFormData(f => ({ ...f, customerId: Number(value) }))}
+                  placeholder="انتخاب یا جستجوی مشتری..."
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div>
+                <label htmlFor="assignedToUsername" className={labelClass}>کاربر مسئول</label>
+                <SearchableSelect
+                  options={searchableOptions.users}
+                  value={formData.assignedToUsername}
+                  onChange={value => setFormData(f => ({ ...f, assignedToUsername: String(value) }))}
+                  placeholder="انتخاب یا جستجوی کاربر..."
+                  disabled={isReadOnly}
+                />
+              </div>
             </div>
+            
             <div>
-              <label htmlFor="type" className={labelClass}>نوع مشکل</label>
-               <SearchableSelect
-                options={searchableOptions.types}
-                value={formData.type}
-                onChange={value => setFormData(f => ({ ...f, type: value as TicketType }))}
-                placeholder="انتخاب یا جستجوی نوع..."
-                disabled={isReadOnly}
-              />
+              <label htmlFor="description" className={labelClass}>شرح کامل</label>
+              <textarea id="description" name="description" value={formData.description} onChange={handleChange} className={textareaClass} disabled={isReadOnly}></textarea>
             </div>
-            <div>
-              <label htmlFor="channel" className={labelClass}>کانال ورودی</label>
-              <select id="channel" name="channel" value={formData.channel} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
-                {(['تلفن', 'ایمیل', 'پورتال', 'حضوری'] as TicketChannel[]).map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-          
-          <div>
-              <label className={labelClass}>فایل‌های پیوست (تصویر، حداکثر ۲ مگابایت)</label>
-              {!isReadOnly && (
-                <div className="mt-2 mb-4">
-                  <input type="file" id="file-upload" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
-                  <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium">
-                    <FileUploadIcon />
-                    <span>افزودن فایل</span>
-                  </label>
-                </div>
-              )}
-               {allAttachmentNames.length > 0 ? (
-                <div className="mt-4 border rounded-md p-3 bg-gray-50 max-h-40 overflow-y-auto space-y-2">
-                    {allAttachmentNames.map((name, index) => (
-                      <div key={`${name}-${index}`} className="flex items-center justify-between p-2 bg-white border rounded-md text-sm">
-                        <div className="flex items-center gap-2 text-slate-700 truncate">
-                            <PaperClipIcon />
-                            <span className="truncate">{name}</span>
-                        </div>
-                        {!isReadOnly && (
-                          <button type="button" onClick={() => handleRemoveAttachment(name)} className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 transition-colors">
-                            <TrashIcon />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                </div>
-               ) : (
-                <div className="mt-2 text-center text-sm text-gray-400 p-4 border border-dashed rounded-md">
-                    هیچ فایلی پیوست نشده است.
-                </div>
-               )}
-          </div>
-          
-          {ticketHistory.length > 0 && (
-             <div>
-                <label className={labelClass}>تاریخچه ارجاعات</label>
-                <ReferralHistoryTimeline history={ticketHistory} users={users} />
-             </div>
-          )}
 
-        </div>
-
-        <div className="p-4 bg-gray-50 border-t flex justify-end items-center">
-            <div className="flex gap-3">
-                <button type="button" onClick={onClose} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100">
-                    {isReadOnly ? 'بستن' : 'انصراف'}
-                </button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
+              <div>
+                <label htmlFor="priority" className={labelClass}>اولویت</label>
+                <select id="priority" name="priority" value={formData.priority} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
+                  {(['کم', 'متوسط', 'اضطراری'] as TicketPriority[]).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="type" className={labelClass}>نوع مشکل</label>
+                <SearchableSelect
+                  options={searchableOptions.types}
+                  value={formData.type}
+                  onChange={value => setFormData(f => ({ ...f, type: value as TicketType }))}
+                  placeholder="انتخاب یا جستجوی نوع..."
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div>
+                <label htmlFor="channel" className={labelClass}>کانال ورودی</label>
+                <select id="channel" name="channel" value={formData.channel} onChange={handleChange} className={inputClass} disabled={isReadOnly}>
+                  {(['تلفن', 'ایمیل', 'پورتال', 'حضوری'] as TicketChannel[]).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            
+            <div>
+                <label className={labelClass}>فایل‌های پیوست (تصویر، حداکثر ۲ مگابایت)</label>
                 {!isReadOnly && (
-                    <button type="submit" className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700">
-                        {ticket ? 'ذخیره تغییرات' : 'ایجاد تیکت'}
-                    </button>
+                  <div className="mt-2 mb-4">
+                    <input type="file" id="file-upload" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
+                    <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium">
+                      <FileUploadIcon />
+                      <span>افزودن فایل</span>
+                    </label>
+                  </div>
+                )}
+                {allAttachmentNames.length > 0 ? (
+                  <div className="mt-4 border rounded-md p-3 bg-gray-50 max-h-40 overflow-y-auto space-y-2">
+                      {allAttachmentNames.map((name, index) => (
+                        <div key={`${name}-${index}`} className="flex items-center justify-between p-2 bg-white border rounded-md text-sm">
+                          <div className="flex items-center gap-2 text-slate-700 truncate">
+                              <PaperClipIcon />
+                              <span className="truncate">{name}</span>
+                          </div>
+                          {!isReadOnly && (
+                            <button type="button" onClick={() => handleRemoveAttachment(name)} className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 transition-colors">
+                              <TrashIcon />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-center text-sm text-gray-400 p-4 border border-dashed rounded-md">
+                      هیچ فایلی پیوست نشده است.
+                  </div>
                 )}
             </div>
-        </div>
-      </form>
-    </Modal>
+            
+            {ticketHistory.length > 0 && (
+              <div>
+                  <label className={labelClass}>تاریخچه ارجاعات</label>
+                  <ReferralHistoryTimeline history={ticketHistory} users={users} />
+              </div>
+            )}
+
+          </div>
+
+          <div className="p-4 bg-gray-50 border-t flex justify-end items-center">
+              <div className="flex gap-3">
+                  <button type="button" onClick={onClose} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100">
+                      {isReadOnly ? 'بستن' : 'انصراف'}
+                  </button>
+                  {!isReadOnly && (
+                      <button type="submit" className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700">
+                          {ticket ? 'ذخیره تغییرات' : 'ایجاد تیکت'}
+                      </button>
+                  )}
+              </div>
+          </div>
+        </form>
+      </Modal>
+      <ConfirmationModal
+        isOpen={!!confirmationData}
+        onClose={() => setConfirmationData(null)}
+        onConfirm={handleConfirmSave}
+        title="هشدار قرارداد پشتیبانی"
+        message="قرارداد پشتیبانی این مشتری منقضی شده یا وجود ندارد. آیا مایل به ثبت تیکت هستید؟"
+        confirmText="بله، ثبت شود"
+        cancelText="انصراف"
+        confirmButtonColor="bg-orange-500 hover:bg-orange-600"
+      />
+    </>
   );
 };
 

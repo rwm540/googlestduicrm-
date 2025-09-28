@@ -1,16 +1,18 @@
 import React from 'react';
-import { Ticket, TicketStatus, TicketPriority, Customer, User } from '../types';
+import { Ticket, TicketStatus, TicketPriority, Customer, User, SupportContract } from '../types';
 import { ClockIcon } from './icons/ClockIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import { DocumentDuplicateIcon } from './icons/DocumentDuplicateIcon';
 import TicketActions from './TicketActions';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import { PaperClipIcon } from './icons/PaperClipIcon';
+import { getCalculatedStatus } from '../utils/dateFormatter';
 
 interface TicketTableProps {
   tickets: (Ticket & { score?: number })[];
   customers: Customer[];
   users: User[];
+  supportContracts: SupportContract[];
   onEdit: (ticket: Ticket) => void;
   onRefer: (ticket: Ticket) => void;
   onToggleWork: (ticketId: number) => void;
@@ -44,7 +46,7 @@ const toPersianDigits = (n: string | number): string => {
   return String(n).replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
 };
 
-const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, onEdit, onRefer, onToggleWork, onDelete, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser, onReopen, onExtendEditTime }) => {
+const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, supportContracts, onEdit, onRefer, onToggleWork, onDelete, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser, onReopen, onExtendEditTime }) => {
   
   const allOnPageSelected = tickets.length > 0 && tickets.every(t => selectedIds.includes(t.id));
   
@@ -54,6 +56,17 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
       const user = users.find(u => u.username === username);
       return user ? `${user.firstName} ${user.lastName}` : username;
   };
+  
+  const hasActiveSupportContract = (customerId: number): boolean => {
+    if (!customerId) return true; // Can't check, so don't highlight
+    const customerContracts = supportContracts.filter(c => c.customerId === customerId);
+    if (customerContracts.length === 0) {
+      return false; // No contract at all
+    }
+    // Return true if at least one contract is active
+    return customerContracts.some(c => getCalculatedStatus(c.endDate, c.status) === 'فعال');
+  };
+
 
   if (tickets.length === 0) {
     return (
@@ -91,10 +104,14 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
             </tr>
           </thead>
           <tbody>
-            {tickets.map(ticket => (
+            {tickets.map(ticket => {
+              const customerHasActiveContract = hasActiveSupportContract(ticket.customerId);
+              return (
               <tr 
                 key={ticket.id} 
-                className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200"
+                className={`border-b border-gray-200 transition-colors duration-200 ${
+                  !customerHasActiveContract ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50/50'
+                }`}
               >
                 <td className="p-4 w-4">
                   <div className="flex items-center">
@@ -136,14 +153,18 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                   <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} onReopen={onReopen} onExtendEditTime={onExtendEditTime} />
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
        {/* Mobile & Tablet Card View */}
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
-        {tickets.map(ticket => (
-          <div key={ticket.id} className="bg-white p-4 space-y-3 relative flex flex-col">
+        {tickets.map(ticket => {
+          const customerHasActiveContract = hasActiveSupportContract(ticket.customerId);
+          return (
+          <div key={ticket.id} className={`p-4 space-y-3 relative flex flex-col ${
+            !customerHasActiveContract ? 'bg-red-50' : 'bg-white'
+          }`}>
              <div className="absolute top-4 left-4">
                 <input id={`checkbox-mobile-${ticket.id}`} type="checkbox" 
                     checked={selectedIds.includes(ticket.id)} 
@@ -181,7 +202,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, on
                  <TicketActions ticket={ticket} onEdit={onEdit} onRefer={onRefer} onToggleWork={onToggleWork} currentUser={currentUser} onDelete={onDelete} onReopen={onReopen} onExtendEditTime={onExtendEditTime} />
             </div>
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { XCircleIcon } from './icons/XCircleIcon';
 interface Option {
   value: string | number;
   label: string;
+  className?: string;
 }
 
 interface SearchableSelectProps {
@@ -92,7 +93,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({ options, value, onC
                 <li
                   key={option.value}
                   onClick={() => handleSelectOption(option)}
-                  className={`cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-cyan-100 hover:text-cyan-900 ${value === option.value ? 'bg-cyan-50 text-cyan-800' : 'text-gray-900'}`}
+                  className={`cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-cyan-100 hover:text-cyan-900 ${value === option.value ? 'bg-cyan-50 text-cyan-800' : 'text-gray-900'} ${option.className || ''}`}
                 >
                   <span className={`block truncate ${value === option.value ? 'font-semibold' : 'font-normal'}`}>
                     {option.label}

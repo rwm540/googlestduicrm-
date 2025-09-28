@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { User, MenuItemId, UserRole } from '../types';
 import Modal from './Modal';
@@ -21,7 +23,6 @@ const allMenus: { id: MenuItemId; label: string }[] = [
   { id: 'referrals', label: 'ارجاعات' },
 ];
 
-// FIX: Corrected multiple typos from 'کارشناс' to 'کارشناس' to match the UserRole type definition.
 const allRoles: UserRole[] = [
   'مدیر',
   'مسئول فروش',
@@ -31,6 +32,21 @@ const allRoles: UserRole[] = [
   'کارشناس پشتیبانی',
   'کارشناس برنامه نویس',
 ];
+
+const generateUniqueUsername = (existingUsers: User[]): string => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const existingUsernames = new Set(existingUsers.map(u => u.username));
+
+    while (true) {
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        if (!existingUsernames.has(result)) {
+            return result;
+        }
+    }
+};
 
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, user, users }) => {
   const [firstName, setFirstName] = useState('');
@@ -43,27 +59,42 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
-    if (user && isOpen) {
-      setFirstName(user.firstName);
-      setLastName(user.lastName);
-      setUsername(user.username);
-      setAccessibleMenus(user.accessibleMenus || []);
-      setRole(user.role || 'کارشناس پشتیبانی');
-    } 
-    
-    if (!isOpen) {
-        setTimeout(() => {
-            setFirstName('');
-            setLastName('');
-            setUsername('');
-            setPassword('');
-            setConfirmPassword('');
-            setAccessibleMenus([]);
-            setRole('کارشناس پشتیبانی');
-            setErrors([]);
-        }, 300); // Reset after closing animation
+    if (isOpen) {
+      if (user) { // Editing existing user
+        setFirstName(user.firstName);
+        setLastName(user.lastName);
+        setUsername(user.username);
+        setAccessibleMenus(user.accessibleMenus || []);
+        setRole(user.role || 'کارشناس پشتیبانی');
+        setPassword('');
+        setConfirmPassword('');
+      } else { // Adding a new user
+        const newUsername = generateUniqueUsername(users);
+        setUsername(newUsername);
+        // reset other fields for a clean form
+        setFirstName('');
+        setLastName('');
+        setPassword('');
+        setConfirmPassword('');
+        setAccessibleMenus([]);
+        setRole('کارشناس پشتیبانی');
+      }
     }
-  }, [user, isOpen]);
+
+    if (!isOpen) {
+      setTimeout(() => {
+        setFirstName('');
+        setLastName('');
+        setUsername('');
+        setPassword('');
+        setConfirmPassword('');
+        setAccessibleMenus([]);
+        setRole('کارشناس پشتیبانی');
+        setErrors([]);
+      }, 300); // Reset after closing animation
+    }
+  }, [user, isOpen, users]);
+
 
   const handleMenuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value, checked } = e.target;
@@ -80,13 +111,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
 
     if (!firstName.trim()) validationErrors.push('نام نمی‌تواند خالی باشد.');
     if (!lastName.trim()) validationErrors.push('نام خانوادگی نمی‌تواند خالی باشد.');
-    if (!username.trim()) validationErrors.push('نام کاربری نمی‌تواند خالی باشد.');
-
-    const isUsernameTaken = users.some(
-        u => u.username.toLowerCase() === username.toLowerCase() && u.id !== user?.id
-    );
-    if (isUsernameTaken) validationErrors.push('این نام کاربری قبلا استفاده شده است.');
-
+    
     if (!user && !password) {
         validationErrors.push('رمز عبور برای کاربر جدید الزامی است.');
     }
@@ -141,7 +166,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">نام کاربری</label>
-                <input type="text" name="username" id="username" value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm" />
+                <input type="text" name="username" id="username" value={username} readOnly className="mt-1 block w-full bg-slate-200 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-500 focus:outline-none sm:text-sm cursor-not-allowed" />
             </div>
             <div>
                 <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">نقش</label>
