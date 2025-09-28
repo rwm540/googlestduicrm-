@@ -148,7 +148,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
                 />
                 <label htmlFor="checkbox-all-mobile-customers" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 overflow-y-auto">
                 <CustomerTable 
                   customers={paginatedCustomers} 
                   onEdit={handleOpenModal} 

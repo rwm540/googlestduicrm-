@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import UserTable from '../components/UserTable';
@@ -148,7 +149,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onSave, onDelete
                 />
                 <label htmlFor="checkbox-all-mobile-users" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 overflow-y-auto">
                 <UserTable 
                   users={paginatedUsers} 
                   onEdit={handleOpenModal} 

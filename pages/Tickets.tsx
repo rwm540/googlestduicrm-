@@ -252,7 +252,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           </div>
           {viewMode === 'list' ? (
             <>
-              <div className="flex-1">
+              <div className="flex-1 overflow-y-auto">
                 <TicketTable
                   tickets={paginatedTickets}
                   customers={customers}

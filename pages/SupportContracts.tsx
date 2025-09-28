@@ -145,7 +145,7 @@ const SupportContracts: React.FC<SupportContractsProps> = ({ contracts, customer
               />
               <label htmlFor="checkbox-all-mobile-support" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <SupportContractTable 
                 contracts={paginatedContracts} 
                 customers={customers}

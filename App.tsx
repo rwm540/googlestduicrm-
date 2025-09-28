@@ -678,7 +678,7 @@ const App: React.FC = () => {
       <ProcessingOverlay isVisible={isProcessing} />
       <Alert messages={globalAlert?.messages || []} type={globalAlert?.type} onClose={() => setGlobalAlert(null)} />
       {currentUser ? (
-        <div className="h-screen flex overflow-hidden bg-gray-100">
+        <div className="h-screen flex bg-gray-100">
           <Sidebar 
             activePage={activePage} 
             setActivePage={(page) => setActivePage(page as MenuItemId)} 
@@ -688,7 +688,7 @@ const App: React.FC = () => {
             onClose={() => setIsSidebarOpen(false)}
           />
            {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/40 z-30 lg:hidden"></div>}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col w-0">
             <Header pageTitle={pageTitles[activePage]} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
             {renderPage()}
           </div>

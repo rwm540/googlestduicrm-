@@ -143,7 +143,7 @@ const PurchaseContracts: React.FC<PurchaseContractsProps> = ({ contracts, users,
               />
               <label htmlFor="checkbox-all-mobile-purchase" className="mr-2 text-sm font-medium text-gray-700">انتخاب همه در این صفحه</label>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <PurchaseContractTable 
               contracts={paginatedContracts} 
               customers={customers}
