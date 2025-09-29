@@ -113,11 +113,11 @@ const FileInput: React.FC<{ label: string; fileName: string; onFileChange: (file
                          <p className="text-sm text-green-600 font-semibold truncate" title={fileName}>{fileName.startsWith('http') ? 'فایل موجود' : fileName}</p>
                     ) : (
                         <p className="text-xs text-gray-500">
-                            <span className="font-semibold text-cyan-600">برای آپلود کلیک کنید</span>
+                            <span className="font-semibold text-cyan-600">برای آپلود کلیک کنید</span> (عکس یا PDF، حداکثر ۵۰۰KB)
                         </p>
                     )}
                 </div>
-                {!disabled && <input type="file" className="hidden" onChange={(e) => e.target.files && e.target.files[0] && onFileChange(e.target.files[0])} />}
+                {!disabled && <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => e.target.files && e.target.files[0] && onFileChange(e.target.files[0])} />}
             </label>
             {fileName && !disabled && (
                 <button type="button" onClick={onClear} className="p-2 ml-2 text-red-500 hover:bg-red-100 rounded-full">
@@ -230,8 +230,12 @@ const PurchaseContractFormModal: React.FC<PurchaseContractFormModalProps> = ({ i
   };
 
   const handleFileChange = (field: keyof Omit<PurchaseContract, 'id'>, file: File) => {
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setErrors(prev => [...prev, `حجم فایل "${file.name}" بیشتر از ۵ مگابایت است.`]);
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+        setErrors(prev => [...prev, `نوع فایل "${file.name}" مجاز نیست. فقط عکس و PDF پشتیبانی می‌شود.`]);
+        return;
+    }
+    if (file.size > 500 * 1024) { // 500KB limit
+        setErrors(prev => [...prev, `حجم فایل "${file.name}" بیشتر از ۵۰۰ کیلوبایت است.`]);
         return;
     }
     setFilesToUpload(prev => ({ ...prev, [field as string]: file }));

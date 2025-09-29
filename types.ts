@@ -3,8 +3,8 @@
 // User Management
 // FIX: Added 'introductions' menu item ID for the new customer introduction feature.
 export type MenuItemId = 'dashboard' | 'customers' | 'users' | 'contracts' | 'tickets' | 'reports' | 'referrals' | 'attendance' | 'leave' | 'missions' | 'introductions';
-// Use 'مسئول پشتیبانی' as the correct role title as requested.
-export type UserRole = 'مدیر' | 'مسئول فروش' | 'مسئول پشتیبانی' | 'مسئول برنامه نویس' | 'کارشناس فروش' | 'کارشناس پشتیبانی' | 'کارشناس برنامه نویس';
+// FIX: Changed 'مسئول پشتیبانی' to 'مسئول پشتیبان' to match the database schema.
+export type UserRole = 'مدیر' | 'مسئول فروش' | 'مسئول پشتیبان' | 'مسئول برنامه نویس' | 'کارشناس فروش' | 'کارشناس پشتیبانی' | 'کارشناس برنامه نویس';
 
 export interface User {
   id: number;

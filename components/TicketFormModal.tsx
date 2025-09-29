@@ -108,15 +108,14 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
       const validationErrors: string[] = [];
       const validFiles: File[] = [];
 
-      // FIX: Use a standard for-loop to iterate through the FileList and ensure correct type inference for 'file'.
       for (let i = 0; i < e.target.files.length; i++) {
         const file = e.target.files[i];
-        if (!file.type.startsWith('image/')) {
-          validationErrors.push(`فایل "${file.name}" یک تصویر نیست.`);
+        if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+          validationErrors.push(`نوع فایل "${file.name}" مجاز نیست (فقط عکس و PDF).`);
           continue;
         }
-        if (file.size > 2 * 1024 * 1024) {
-          validationErrors.push(`حجم فایل "${file.name}" بیشتر از ۲ مگابایت است.`);
+        if (file.size > 500 * 1024) { // 500KB limit
+          validationErrors.push(`حجم فایل "${file.name}" بیشتر از ۵۰۰ کیلوبایت است.`);
           continue;
         }
         validFiles.push(file);
@@ -153,9 +152,16 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         setErrors(validationErrors);
         return;
     }
+    
+    // Final validation layer to guarantee priority is correct before saving.
+    const validPriorities: TicketPriority[] = ['کم', 'متوسط', 'اضطراری'];
+    const finalPriority = validPriorities.includes(formData.priority)
+        ? formData.priority
+        : 'متوسط'; // Default to a safe value if something went wrong
 
     const dataToSave = {
         ...formData,
+        priority: finalPriority, // Use the validated priority
         lastUpdateDate: formatJalaaliDateTime(new Date()),
         attachments: [...formData.attachments, ...newAttachments.map(f => f.name)],
     };
@@ -281,10 +287,10 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
             </div>
             
             <div>
-                <label className={labelClass}>فایل‌های پیوست (تصویر، حداکثر ۲ مگابایت)</label>
+                <label className={labelClass}>فایل‌های پیوست (عکس یا PDF، حداکثر ۵۰۰ کیلوبایت)</label>
                 {!isReadOnly && (
                   <div className="mt-2 mb-4">
-                    <input type="file" id="file-upload" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
+                    <input type="file" id="file-upload" multiple accept="image/*,application/pdf" onChange={handleFileChange} className="hidden" />
                     <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium">
                       <FileUploadIcon />
                       <span>افزودن فایل</span>

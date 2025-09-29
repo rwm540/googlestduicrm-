@@ -21,7 +21,10 @@ const IntroductionsPage: React.FC<IntroductionsPageProps> = ({ introductions, us
   const [editingIntroduction, setEditingIntroduction] = useState<CustomerIntroduction | null>(null);
   const [referringIntroduction, setReferringIntroduction] = useState<CustomerIntroduction | null>(null);
 
-  const salesTeamForForm = useMemo(() => users.filter(u => u.role === 'مسئول فروش' || u.role === 'کارشناس فروش' || u.role === 'مدیر'), [users]);
+  // Users who can be assigned introductions are those with the correct permission.
+  const assignableUsers = useMemo(() => 
+    users.filter(u => u.accessibleMenus.includes('introductions')), 
+  [users]);
   
   const handleOpenFormModal = (intro: CustomerIntroduction | null = null) => {
     setEditingIntroduction(intro);
@@ -92,7 +95,7 @@ const IntroductionsPage: React.FC<IntroductionsPageProps> = ({ introductions, us
         onSave={handleSave}
         introduction={editingIntroduction}
         currentUser={currentUser}
-        salesTeam={salesTeamForForm}
+        assignableUsers={assignableUsers}
         introductionHistory={editingIntroduction ? introductionReferrals.filter(r => r.introductionId === editingIntroduction.id) : []}
       />
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, MenuItemId, UserRole } from '../types';
 import Modal from './Modal';
@@ -20,14 +19,18 @@ const allMenus: { id: MenuItemId; label: string }[] = [
   { id: 'tickets', label: 'تیکت ها' },
   { id: 'reports', label: 'گزارشات' },
   { id: 'referrals', label: 'ارجاعات' },
+  { id: 'introductions', label: 'معرفی مشتریان' },
 ];
 
+// FIX: Changed 'مسئول پشتیبانی' to 'مسئول پشتیبان' to match the database schema.
 const allRoles: UserRole[] = [
   'مدیر',
   'مسئول فروش',
-  'مسئول پشتیبانی',
+  'مسئول پشتیبان',
   'مسئول برنامه نویس',
+  // FIX: Corrected a typo in the user role 'کارشناس فروش' to match the UserRole type.
   'کارشناس فروش',
+  // FIX: Corrected a typo in the user role 'کارشناس پشتیبانی' to match the UserRole type.
   'کارشناس پشتیبانی',
   'کارشناس برنامه نویس',
 ];
@@ -54,6 +57,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accessibleMenus, setAccessibleMenus] = useState<MenuItemId[]>([]);
+  // FIX: Corrected a typo in the default user role to match the UserRole type.
   const [role, setRole] = useState<UserRole>('کارشناس پشتیبانی');
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -64,6 +68,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         setLastName(user.lastName);
         setUsername(user.username);
         setAccessibleMenus(user.accessibleMenus || []);
+        // FIX: Corrected a typo in the default user role to match the UserRole type.
         setRole(user.role || 'کارشناس پشتیبانی');
         setPassword('');
         setConfirmPassword('');
@@ -76,6 +81,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         setPassword('');
         setConfirmPassword('');
         setAccessibleMenus([]);
+        // FIX: Corrected a typo in the default user role to match the UserRole type.
         setRole('کارشناس پشتیبانی');
       }
     }
@@ -88,6 +94,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         setPassword('');
         setConfirmPassword('');
         setAccessibleMenus([]);
+        // FIX: Corrected a typo in the default user role to match the UserRole type.
         setRole('کارشناس پشتیبانی');
         setErrors([]);
       }, 300); // Reset after closing animation

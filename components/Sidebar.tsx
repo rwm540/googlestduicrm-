@@ -47,11 +47,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isSidebarO
   ];
   
   const accessibleNavItems = allNavItems.filter(item => {
-    // Special rule for Introductions: only for sales team and managers
-    if (item.id === 'introductions') {
-      return ['مدیر', 'مسئول فروش', 'کارشناس فروش'].includes(user.role);
-    }
-    // Default rule for other items
+    // The check is now unified for all menu items.
+    // The 'introductions' item is now controlled by user permissions.
     return user.accessibleMenus.includes(item.id as MenuItemId);
   });
 

@@ -101,69 +101,10 @@ const App: React.FC = () => {
   };
 
 
-  // Session management: Check for a valid session on initial load
-  useEffect(() => {
-    const checkSession = () => {
-        try {
-            const sessionDataString = localStorage.getItem('crm_session');
-            if (sessionDataString) {
-                const { user, loginTimestamp } = JSON.parse(sessionDataString);
-                const threeDaysInMillis = 3 * 24 * 60 * 60 * 1000;
-                
-                // Check if session is older than 3 days
-                if (Date.now() - loginTimestamp < threeDaysInMillis) {
-                    setCurrentUser(user);
-                } else {
-                    // Session expired, clear it
-                    localStorage.removeItem('crm_session');
-                }
-            }
-        } catch (error) {
-            console.error("Failed to parse session data from localStorage", error);
-            // Clear corrupted session data
-            localStorage.removeItem('crm_session');
-        } finally {
-            // Finished checking session, hide main loader
-            setIsLoading(false);
-        }
-    };
-    checkSession();
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsSidebarOpen(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
-    
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  
-  // Centralized function for sorting and scoring tickets
-  const sortAndScoreTickets = useCallback((ticketArr: Ticket[]) => {
-    const scoredTickets = ticketArr.map(ticket => ({
-        ...ticket,
-        score: calculateTicketScore(ticket, customers, supportContracts),
-    }));
-
-    scoredTickets.sort((a, b) => {
-        if ((a.score ?? 999) !== (b.score ?? 999)) {
-            return (a.score ?? 999) - (b.score ?? 999);
-        }
-        const dateA = parseJalaaliDateTime(a.creationDateTime)?.getTime() || 0;
-        const dateB = parseJalaaliDateTime(b.creationDateTime)?.getTime() || 0;
-        return dateB - dateA; // Sort by creation date descending as a tie-breaker
-    });
-    return scoredTickets;
-  }, [customers, supportContracts]);
-
-
+  // Centralized data fetching function
   const fetchAllData = useCallback(async () => {
     if (!currentUser) return;
-    setIsProcessing(true);
+    // Note: isProcessing is NOT set here. The main `isLoading` state handles the initial load.
     try {
         // Fetch core data first
         const [
@@ -259,17 +200,80 @@ const App: React.FC = () => {
             }
         }
     }
-
-
-    setIsProcessing(false);
   }, [currentUser, addAlert, introductionReferralTableExists]);
 
-  // Fetch all data when a user logs in (either via session or form)
+  // Session management: Check for a valid session on initial load
   useEffect(() => {
-    if (currentUser) {
-        fetchAllData();
-    }
+    const checkSession = () => {
+        try {
+            const sessionDataString = localStorage.getItem('crm_session');
+            if (sessionDataString) {
+                const { user, loginTimestamp } = JSON.parse(sessionDataString);
+                const threeDaysInMillis = 3 * 24 * 60 * 60 * 1000;
+                
+                if (Date.now() - loginTimestamp < threeDaysInMillis) {
+                    // Session is valid. Set the user. Data fetching will be triggered by another useEffect.
+                    setCurrentUser(user);
+                } else {
+                    // Session expired, stop loading and show login page.
+                    localStorage.removeItem('crm_session');
+                    setIsLoading(false);
+                }
+            } else {
+                 // No session found, stop loading and show login page.
+                setIsLoading(false);
+            }
+        } catch (error) {
+            console.error("Failed to parse session data from localStorage", error);
+            localStorage.removeItem('crm_session');
+            setIsLoading(false); // Stop loading on error
+        }
+    };
+    checkSession();
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // This effect runs when `currentUser` is set (either from session or from login).
+  useEffect(() => {
+    const performInitialFetch = async () => {
+      // If a user is set, fetch their data.
+      if (currentUser) {
+        await fetchAllData();
+        // Once data is fetched, hide the main loader.
+        setIsLoading(false);
+      }
+    };
+    performInitialFetch();
   }, [currentUser, fetchAllData]);
+
+   useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Centralized function for sorting and scoring tickets
+  const sortAndScoreTickets = useCallback((ticketArr: Ticket[]) => {
+    const scoredTickets = ticketArr.map(ticket => ({
+        ...ticket,
+        score: calculateTicketScore(ticket, customers, supportContracts),
+    }));
+
+    scoredTickets.sort((a, b) => {
+        if ((a.score ?? 999) !== (b.score ?? 999)) {
+            return (a.score ?? 999) - (b.score ?? 999);
+        }
+        const dateA = parseJalaaliDateTime(a.creationDateTime)?.getTime() || 0;
+        const dateB = parseJalaaliDateTime(b.creationDateTime)?.getTime() || 0;
+        return dateB - dateA; // Sort by creation date descending as a tie-breaker
+    });
+    return scoredTickets;
+  }, [customers, supportContracts]);
   
   // A unified function to update a ticket across all relevant states and re-sort
   const updateTicketInState = useCallback((updatedTicket: Ticket) => {
@@ -395,19 +399,21 @@ const App: React.FC = () => {
 
 
   const handleLogin = async (username: string, password: string): Promise<boolean> => {
-    setIsProcessing(true);
+    // The login page has its own internal loading state for the button.
     try {
       const { data, status } = await api.get(`/users?username=eq.${username}&password=eq.${password}&select=*`);
       if (status === 200 && data && data.length > 0) {
         const loggedInUser = convertKeysToCamelCase(data[0]);
         
-        // Create and store session data for 3 days
         const sessionData = {
             user: loggedInUser,
             loginTimestamp: Date.now()
         };
         localStorage.setItem('crm_session', JSON.stringify(sessionData));
 
+        // Show the main app loader BEFORE setting the user.
+        setIsLoading(true);
+        // Set the user. This will trigger the performInitialFetch useEffect.
         setCurrentUser(loggedInUser);
         return true;
       }
@@ -415,8 +421,6 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('خطای ورود:', error);
       return false;
-    } finally {
-      setIsProcessing(false);
     }
   };
 

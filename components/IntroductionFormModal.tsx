@@ -13,7 +13,7 @@ interface IntroductionFormModalProps {
   onSave: (intro: CustomerIntroduction | Omit<CustomerIntroduction, 'id'>) => void;
   introduction: CustomerIntroduction | null;
   currentUser: User;
-  salesTeam: User[];
+  assignableUsers: User[];
   introductionHistory: IntroductionReferral[];
 }
 
@@ -36,7 +36,7 @@ const getInitialState = (currentUser: User): Omit<CustomerIntroduction, 'id'> =>
 const inputClass = "mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm";
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
-const IntroductionFormModal: React.FC<IntroductionFormModalProps> = ({ isOpen, onClose, onSave, introduction, currentUser, salesTeam, introductionHistory }) => {
+const IntroductionFormModal: React.FC<IntroductionFormModalProps> = ({ isOpen, onClose, onSave, introduction, currentUser, assignableUsers, introductionHistory }) => {
   const [formData, setFormData] = useState(() => getInitialState(currentUser));
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -91,12 +91,12 @@ const IntroductionFormModal: React.FC<IntroductionFormModalProps> = ({ isOpen, o
               <div><label className={labelClass}>سطح آشنایی با سه‌نیک</label><select name="familiarityLevel" value={formData.familiarityLevel} onChange={handleChange} className={inputClass}>{(['آشنا', 'جدید'] as FamiliarityLevel[]).map(o => <option key={o} value={o}>{o}</option>)}</select></div>
               <div><label className={labelClass}>تاریخ معرفی</label><DatePicker value={formData.introductionDate} onChange={date => setFormData(f => ({...f, introductionDate: date}))} /></div>
               <div className="sm:col-span-2"><label className={labelClass}>نحوه آشنایی</label><textarea name="acquaintanceDetails" value={formData.acquaintanceDetails} onChange={handleChange} className={`${inputClass} min-h-[80px]`}></textarea></div>
-               <div><label className={labelClass}>مسئول پیگیری</label><SearchableSelect options={salesTeam.map(u => ({value: u.username, label: `${u.firstName} ${u.lastName} (${u.role})`}))} value={formData.assignedToUsername} onChange={val => setFormData(f => ({...f, assignedToUsername: String(val)}))} /></div>
+               <div><label className={labelClass}>مسئول پیگیری</label><SearchableSelect options={assignableUsers.map(u => ({value: u.username, label: `${u.firstName} ${u.lastName} (${u.role})`}))} value={formData.assignedToUsername} onChange={val => setFormData(f => ({...f, assignedToUsername: String(val)}))} /></div>
             </div>
              {introductionHistory.length > 0 && (
               <div className="mt-4">
                 <label className={labelClass}>تاریخچه ارجاعات</label>
-                <IntroductionReferralHistory history={introductionHistory} users={salesTeam} />
+                <IntroductionReferralHistory history={introductionHistory} users={assignableUsers} />
               </div>
             )}
           </div>

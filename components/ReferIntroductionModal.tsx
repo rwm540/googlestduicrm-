@@ -18,19 +18,11 @@ const ReferIntroductionModal: React.FC<ReferIntroductionModalProps> = ({ isOpen,
   const availableUsers = useMemo(() => {
     if (!isOpen || !introduction) return [];
 
-    const { role } = currentUser;
-    const salesAndManagers = users.filter(u => u.role.includes('فروش') || u.role === 'مدیر');
-
-    if (role === 'کارشناس فروش') {
-      // Specialists can refer to other specialists and sales managers, but NOT the main manager.
-      return salesAndManagers.filter(u =>
-        u.username !== currentUser.username && u.role !== 'مدیر'
-      );
-    }
-    
-    // Managers and Sales Managers can refer to anyone in the sales team or other managers (except themselves).
-    return salesAndManagers.filter(u => u.username !== currentUser.username);
-
+    // Users who can be assigned are those with access to the 'introductions' menu,
+    // excluding the current user.
+    return users.filter(u =>
+      u.accessibleMenus.includes('introductions') && u.username !== currentUser.username
+    );
   }, [isOpen, introduction, users, currentUser]);
 
   useEffect(() => {
