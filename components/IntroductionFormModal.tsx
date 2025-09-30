@@ -93,7 +93,7 @@ const IntroductionFormModal: React.FC<IntroductionFormModalProps> = ({ isOpen, o
               <div className="sm:col-span-2"><label className={labelClass}>نحوه آشنایی</label><textarea name="acquaintanceDetails" value={formData.acquaintanceDetails} onChange={handleChange} className={`${inputClass} min-h-[80px]`}></textarea></div>
                <div><label className={labelClass}>مسئول پیگیری</label><SearchableSelect options={assignableUsers.map(u => ({value: u.username, label: `${u.firstName} ${u.lastName} (${u.role})`}))} value={formData.assignedToUsername} onChange={val => setFormData(f => ({...f, assignedToUsername: String(val)}))} /></div>
             </div>
-             {introductionHistory.length > 0 && (
+             {introduction && introductionHistory && (
               <div className="mt-4">
                 <label className={labelClass}>تاریخچه ارجاعات</label>
                 <IntroductionReferralHistory history={introductionHistory} users={assignableUsers} />

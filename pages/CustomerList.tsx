@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Customer, User } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Customer, User, CustomerIntroduction } from '../types';
 import CustomerTable from '../components/CustomerTable';
 import CustomerFormModal from '../components/CustomerFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
@@ -7,10 +7,12 @@ import Pagination from '../components/Pagination';
 import { toPersianDigits } from '../utils/dateFormatter';
 import { TrashIcon } from '../components/icons/TrashIcon';
 import ConfirmationModal from '../components/ConfirmationModal';
+import { SparklesIcon } from '../components/icons/SparklesIcon';
 
 interface CustomerListProps {
   customers: Customer[];
-  onSave: (customer: Customer | Omit<Customer, 'id'>) => void;
+  introductions: CustomerIntroduction[];
+  onSave: (customer: Customer | Omit<Customer, 'id'>) => Promise<Customer>;
   onDelete: (customerId: number) => void;
   onDeleteMany: (customerIds: number[]) => void;
   currentUser: User;
@@ -18,12 +20,13 @@ interface CustomerListProps {
 
 const ITEMS_PER_PAGE = 10;
 
-const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete, onDeleteMany, currentUser }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ customers, introductions, onSave, onDelete, onDeleteMany, currentUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [showIntroducedOnly, setShowIntroducedOnly] = useState(false);
   
   // State for confirmation modal
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
@@ -39,8 +42,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
     setTimeout(() => setEditingCustomer(null), 300);
   };
 
-  const handleSaveCustomer = (customerData: Customer | Omit<Customer, 'id'>) => {
-    onSave(customerData);
+  const handleSaveCustomer = async (customerData: Customer | Omit<Customer, 'id'>) => {
+    await onSave(customerData);
     handleCloseModal();
   };
   
@@ -64,16 +67,32 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
     setCurrentPage(1);
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    const search = searchTerm.toLowerCase();
-    return (
-        `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(search) ||
-        customer.companyName.toLowerCase().includes(search) ||
-        customer.nationalId.toLowerCase().includes(search) ||
-        customer.emails.some(e => e.toLowerCase().includes(search)) ||
-        customer.mobileNumbers.some(m => m.toLowerCase().includes(search))
-    )
-  });
+  const filteredCustomers = useMemo(() => {
+    let results = [...customers];
+    
+    if (showIntroducedOnly) {
+        const introducedCustomerIds = new Set(
+            introductions
+                .filter(intro => intro.status === 'موفق' && intro.linkedCustomerId)
+                .map(intro => intro.linkedCustomerId)
+        );
+        results = results.filter(c => introducedCustomerIds.has(c.id));
+    }
+
+    if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        results = results.filter(customer => 
+            `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(search) ||
+            customer.companyName.toLowerCase().includes(search) ||
+            customer.nationalId.toLowerCase().includes(search) ||
+            customer.emails.some(e => e.toLowerCase().includes(search)) ||
+            customer.mobileNumbers.some(m => m.toLowerCase().includes(search))
+        );
+    }
+    
+    return results.sort((a,b) => b.id - a.id);
+
+  }, [customers, searchTerm, showIntroducedOnly, introductions]);
 
   const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
   const paginatedCustomers = filteredCustomers.slice(
@@ -128,6 +147,13 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSave, onDelete
                     onChange={handleSearchChange}
                     className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
                 />
+                 <button 
+                    onClick={() => setShowIntroducedOnly(!showIntroducedOnly)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${showIntroducedOnly ? 'bg-pink-100 text-pink-700 border-pink-300' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}
+                 >
+                    <SparklesIcon />
+                    <span>نمایش مشتریان معرفی شده</span>
+                 </button>
                  {currentUser.role === 'مدیر' && selectedIds.length > 0 && (
                   <button
                     onClick={() => setItemsToDelete(selectedIds)}

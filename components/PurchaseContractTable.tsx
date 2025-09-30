@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PurchaseContract, ContractStatus, User, Customer } from '../types';
 import { EditIcon } from './icons/EditIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import { getPurchaseContractStatusByDate, toPersianDigits, formatCurrency } from '../utils/dateFormatter';
 import { PaperClipIcon } from './icons/PaperClipIcon';
+import AttachmentViewerModal from './AttachmentViewerModal';
 
 interface PurchaseContractTableProps {
   contracts: PurchaseContract[];
@@ -23,8 +24,18 @@ const statusStyles: { [key in ContractStatus]: string } = {
   'لغو شده': 'bg-red-100 text-red-700',
 };
 
+const attachmentFields: (keyof PurchaseContract)[] = ['signedContractPdf', 'salesInvoice', 'deliverySchedule', 'moduleList'];
+
+const getAttachmentUrls = (contract: PurchaseContract | null): string[] => {
+    if (!contract) return [];
+    return attachmentFields
+        .map(field => contract[field] as string)
+        .filter(url => typeof url === 'string' && url.trim() !== '');
+};
+
 const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts, customers, onEdit, onDelete, selectedIds, onToggleSelect, onToggleSelectAll, currentUser }) => {
   const allOnPageSelected = contracts.length > 0 && contracts.every(c => selectedIds.includes(c.id));
+  const [viewingAttachments, setViewingAttachments] = useState<PurchaseContract | null>(null);
   
   const getCustomerName = (customerId: number | null): string => {
     if (!customerId) return 'نامشخص';
@@ -41,22 +52,14 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
     );
   }
 
-  const attachmentFields: (keyof PurchaseContract)[] = ['signedContractPdf', 'salesInvoice', 'deliverySchedule', 'moduleList'];
-  const attachmentTitles: Record<string, string> = {
-      signedContractPdf: 'PDF قرارداد',
-      salesInvoice: 'فاکتور فروش',
-      deliverySchedule: 'زمانبندی تحویل',
-      moduleList: 'لیست ماژول ها',
-  };
-
-
   return (
+    <>
     <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
         {/* Mobile & Tablet Card View (for screens smaller than lg) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:hidden gap-px bg-gray-200">
         {contracts.map(contract => {
             const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
-            const attachments = attachmentFields.map(field => ({ field, url: contract[field] })).filter(a => typeof a.url === 'string' && a.url);
+            const attachments = getAttachmentUrls(contract);
 
             return (
               <div key={contract.id} className="bg-white p-4 space-y-4 relative">
@@ -84,11 +87,9 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                       {attachments.length > 0 && (
                         <div className="flex items-center gap-2">
                             <span className="font-semibold">پیوست‌ها:</span>
-                            {attachments.map(att => (
-                                <a key={att.field} href={att.url as string} target="_blank" rel="noopener noreferrer" title={attachmentTitles[att.field]} className="text-gray-400 hover:text-cyan-600">
-                                    <PaperClipIcon />
-                                </a>
-                            ))}
+                            <button onClick={() => setViewingAttachments(contract)} className="text-gray-400 hover:text-cyan-600">
+                                <PaperClipIcon />
+                            </button>
                         </div>
                       )}
                   </div>
@@ -142,7 +143,7 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
           <tbody>
             {contracts.map(contract => {
               const displayStatus = getPurchaseContractStatusByDate(contract.contractStartDate, contract.contractEndDate);
-              const attachments = attachmentFields.map(field => ({ field, url: contract[field] })).filter(a => typeof a.url === 'string' && a.url);
+              const attachments = getAttachmentUrls(contract);
               return (
               <tr key={contract.id} className="border-b border-gray-200 hover:bg-slate-50/50 transition-colors duration-200">
                 <td className="w-4 p-4">
@@ -164,13 +165,11 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    {attachments.map(att => (
-                        <a key={att.field} href={att.url as string} target="_blank" rel="noopener noreferrer" title={attachmentTitles[att.field]} className="text-gray-400 hover:text-cyan-600">
-                            <PaperClipIcon />
-                        </a>
-                    ))}
-                  </div>
+                  {attachments.length > 0 && (
+                     <button onClick={() => setViewingAttachments(contract)} className="text-gray-400 hover:text-cyan-600">
+                        <PaperClipIcon />
+                     </button>
+                  )}
                 </td>
                 <td className="px-6 py-4 text-left">
                   <div className="flex items-center justify-end gap-2">
@@ -198,6 +197,13 @@ const PurchaseContractTable: React.FC<PurchaseContractTableProps> = ({ contracts
         </table>
       </div>
     </div>
+    <AttachmentViewerModal
+        isOpen={!!viewingAttachments}
+        onClose={() => setViewingAttachments(null)}
+        attachments={getAttachmentUrls(viewingAttachments)}
+        entityName={`قرارداد #${toPersianDigits(viewingAttachments?.contractId || '')}`}
+    />
+    </>
   );
 };
 

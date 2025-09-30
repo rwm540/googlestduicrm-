@@ -230,8 +230,8 @@ export interface CustomerIntroduction {
   introductionDate: string;
   acquaintanceDetails: string;
   status: CustomerIntroductionStatus;
-  // FIX: Added createdAt property to match the database schema and support sorting.
   createdAt?: string;
+  linkedCustomerId?: number | null;
 }
 
 export interface IntroductionReferral {

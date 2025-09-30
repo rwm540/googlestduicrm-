@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Ticket, TicketStatus, TicketPriority, Customer, User, SupportContract } from '../types';
 import { ClockIcon } from './icons/ClockIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
@@ -7,6 +7,7 @@ import TicketActions from './TicketActions';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import { PaperClipIcon } from './icons/PaperClipIcon';
 import { getCalculatedStatus } from '../utils/dateFormatter';
+import AttachmentViewerModal from './AttachmentViewerModal';
 
 interface TicketTableProps {
   tickets: (Ticket & { score?: number })[];
@@ -49,6 +50,7 @@ const toPersianDigits = (n: string | number): string => {
 const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, supportContracts, onEdit, onRefer, onToggleWork, onDelete, isReferralTable, emptyMessage, selectedIds, onToggleSelect, onToggleSelectAll, currentUser, onReopen, onExtendEditTime }) => {
   
   const allOnPageSelected = tickets.length > 0 && tickets.every(t => selectedIds.includes(t.id));
+  const [viewingTicketAttachments, setViewingTicketAttachments] = useState<Ticket | null>(null);
   
   const getCustomerName = (customerId: number) => customers.find(c => c.id === customerId)?.companyName || 'N/A';
   const getAssigneeName = (username: string) => {
@@ -80,6 +82,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, su
   }
 
   return (
+    <>
     <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 overflow-hidden">
       <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-sm text-right text-gray-600">
@@ -137,7 +140,11 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, su
                 </td>
                 <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => onEdit(ticket)}>
                     <div className="flex items-center gap-2">
-                        {ticket.attachments && ticket.attachments.length > 0 && <PaperClipIcon />}
+                        {ticket.attachments && ticket.attachments.length > 0 && (
+                            <button onClick={(e) => { e.stopPropagation(); setViewingTicketAttachments(ticket); }} className="text-gray-400 hover:text-cyan-600">
+                                <PaperClipIcon />
+                            </button>
+                        )}
                         <span>{ticket.title}</span>
                     </div>
                 </td>
@@ -176,7 +183,11 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, su
                 <div className="flex items-start justify-between">
                     <div>
                         <p className="text-lg font-bold text-slate-800 flex items-center gap-2 pr-8">
-                          {ticket.attachments && ticket.attachments.length > 0 && <PaperClipIcon />}
+                          {ticket.attachments && ticket.attachments.length > 0 && (
+                              <button onClick={(e) => { e.stopPropagation(); setViewingTicketAttachments(ticket); }} className="text-gray-400 hover:text-cyan-600 -ml-1">
+                                <PaperClipIcon />
+                              </button>
+                          )}
                           <span>{ticket.title}</span>
                         </p>
                         <p className="text-sm text-gray-500 mt-1">{getCustomerName(ticket.customerId)}</p>
@@ -205,6 +216,13 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, su
         )})}
       </div>
     </div>
+    <AttachmentViewerModal
+        isOpen={!!viewingTicketAttachments}
+        onClose={() => setViewingTicketAttachments(null)}
+        attachments={viewingTicketAttachments?.attachments || []}
+        entityName={`تیکت #${toPersianDigits(viewingTicketAttachments?.ticketNumber || '')}`}
+    />
+    </>
   );
 };
 

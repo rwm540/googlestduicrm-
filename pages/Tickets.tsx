@@ -91,23 +91,35 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   const filteredTickets = useMemo(() => {
     let sourceTickets: Ticket[];
 
-    if (showCompleted) {
+    // Start with a comprehensive list of all tickets for managers or in the 'completed' view.
+    if (showCompleted || currentUser.role === 'مدیر') {
         const allTicketsMap = new Map<number, Ticket>();
         tickets.forEach(ticket => allTicketsMap.set(ticket.id, ticket));
         referrals.forEach(referral => allTicketsMap.set(referral.ticket.id, referral.ticket));
         sourceTickets = Array.from(allTicketsMap.values());
     } else {
+        // Non-managers in the main view only see tickets from the primary list.
         sourceTickets = [...tickets];
     }
 
-    // Filter by status: show completed OR show active (not completed AND not referred)
-    sourceTickets = sourceTickets.filter(ticket =>
-      showCompleted 
-        ? ticket.status === 'اتمام یافته' 
-        : ticket.status !== 'اتمام یافته' && ticket.status !== 'ارجاع شده'
-    );
+    // Filter by status based on view and role
+    if (currentUser.role === 'مدیر') {
+      // Managers see all non-completed tickets (including referred) in the main view.
+      sourceTickets = sourceTickets.filter(ticket =>
+        showCompleted
+          ? ticket.status === 'اتمام یافته'
+          : ticket.status !== 'اتمام یافته'
+      );
+    } else {
+      // Non-managers see only active (not completed AND not referred) tickets.
+      sourceTickets = sourceTickets.filter(ticket =>
+        showCompleted 
+          ? ticket.status === 'اتمام یافته' 
+          : ticket.status !== 'اتمام یافته' && ticket.status !== 'ارجاع شده'
+      );
+    }
 
-    // Filter by user access rights
+    // Filter by user access rights for non-managers
     if (currentUser.role !== 'مدیر') {
       if (currentUser.role.startsWith('مسئول')) { // Is a department lead
         const department = currentUser.role.replace('مسئول ', '');

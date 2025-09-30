@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // FIX: Added CustomerIntroduction type for the new feature.
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, TicketStatus, CustomerIntroduction, IntroductionReferral } from './types';
@@ -16,6 +15,7 @@ import CustomerList from './pages/CustomerList';
 import Tickets from './pages/Tickets';
 import ReferralsPage from './pages/ReferralsPage';
 import ReportsPage from './pages/ReportsPage';
+import ContractsPage from './pages/ContractsPage';
 import PurchaseContracts from './pages/PurchaseContracts';
 import SupportContracts from './pages/SupportContracts';
 // FIX: Added import for the new IntroductionsPage.
@@ -532,29 +532,32 @@ const App: React.FC = () => {
       onItemUpdate?: (item: T) => void;
     }
   ) => {
-    const onSave = useCallback(async (data: T | Omit<T, 'id'>) => {
+    const onSave = useCallback(async (data: T | Omit<T, 'id'>): Promise<T> => {
         setIsProcessing(true);
         try {
             const payload = convertKeysToSnakeCase(data);
             const isEditing = 'id' in data;
+            let savedItem: T;
             if (isEditing) {
                 const { id, ...updateData } = payload;
                 const { data: updatedData } = await api.patch(`/${endpoint}?id=eq.${id}`, updateData, { headers: { 'Prefer': 'return=representation' } });
-                const updatedItem = convertKeysToCamelCase(updatedData[0]);
+                savedItem = convertKeysToCamelCase(updatedData[0]);
                 if (options?.onItemUpdate) {
-                    options.onItemUpdate(updatedItem);
+                    options.onItemUpdate(savedItem);
                 } else {
-                    setState(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+                    setState(prev => prev.map(item => item.id === savedItem.id ? savedItem : item));
                 }
             } else {
                 const { data: newData } = await api.post(`/${endpoint}`, payload, { headers: { 'Prefer': 'return=representation' } });
-                const newItem = convertKeysToCamelCase(newData[0]);
-                setState(prev => [...prev, newItem].sort(options?.sortAfterInsert || (() => 0)));
+                savedItem = convertKeysToCamelCase(newData[0]);
+                setState(prev => [...prev.filter(item => item.id !== savedItem.id), savedItem].sort(options?.sortAfterInsert || (() => 0)));
             }
             addAlert([`${entityName} با موفقیت ${isEditing ? 'ویرایش' : 'ذخیره'} شد.`], 'success');
+            return savedItem;
         } catch (error: any) { 
             const errorMessage = error.response?.data?.message || error.message;
             addAlert([`خطا در ذخیره ${entityName}.`, errorMessage], 'error');
+            throw error;
         } finally { setIsProcessing(false); }
     }, [entityName, endpoint, setState, options, addAlert]);
 
@@ -763,15 +766,22 @@ const App: React.FC = () => {
       case 'users':
         return <UserManagement users={users} onSave={handleSaveUser} onDelete={handleDeleteUser} onDeleteMany={handleDeleteManyUsers} currentUser={currentUser} />;
       case 'customers':
-        return <CustomerList customers={customers} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteManyCustomers} currentUser={currentUser} />;
+        return <CustomerList customers={customers} introductions={introductions} onSave={handleSaveCustomer} onDelete={handleDeleteCustomer} onDeleteMany={handleDeleteManyCustomers} currentUser={currentUser} />;
       case 'contracts':
         return (
-            <div className="bg-gray-50 text-slate-800 p-4 sm:p-6 lg:p-8 flex flex-col flex-1">
-                <main className="max-w-7xl mx-auto w-full flex flex-col flex-1 gap-12">
-                    <PurchaseContracts contracts={purchaseContracts} users={users} customers={customers} onSave={handleSavePurchaseContract} onDelete={handleDeletePurchaseContract} onDeleteMany={handleDeleteManyPurchaseContracts} currentUser={currentUser} />
-                    <SupportContracts contracts={supportContracts} customers={customers} onSave={handleSaveSupportContract} onDelete={handleDeleteSupportContract} onDeleteMany={handleDeleteManySupportContracts} currentUser={currentUser} />
-                </main>
-            </div>
+            <ContractsPage 
+                purchaseContracts={purchaseContracts}
+                supportContracts={supportContracts}
+                users={users}
+                customers={customers}
+                onSavePurchaseContract={handleSavePurchaseContract}
+                onDeletePurchaseContract={handleDeletePurchaseContract}
+                onDeleteManyPurchaseContracts={handleDeleteManyPurchaseContracts}
+                onSaveSupportContract={handleSaveSupportContract}
+                onDeleteSupportContract={handleDeleteSupportContract}
+                onDeleteManySupportContracts={handleDeleteManySupportContracts}
+                currentUser={currentUser}
+            />
         );
       case 'tickets':
         return <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} onReopenTicket={handleReopenTicket} onExtendEditTime={handleExtendEditTime} currentUser={currentUser} />;
@@ -786,10 +796,20 @@ const App: React.FC = () => {
           if (currentUser.role === 'مدیر') {
             return true;
           }
-          // Other users can only see introductions currently assigned to them.
-          return intro.assignedToUsername === currentUser.username;
+          // Others see intros they created OR are assigned to.
+          return intro.introducerUsername === currentUser.username || intro.assignedToUsername === currentUser.username;
         });
-        return <IntroductionsPage introductions={introductionsForUser} users={users} onSave={handleSaveIntroduction} onDelete={handleDeleteIntroduction} currentUser={currentUser} onReferIntroduction={handleReferIntroduction} introductionReferrals={introductionReferrals} />;
+        return <IntroductionsPage 
+            introductions={introductionsForUser} 
+            users={users} 
+            customers={customers}
+            onSaveIntroduction={handleSaveIntroduction} 
+            onDeleteIntroduction={handleDeleteIntroduction} 
+            currentUser={currentUser} 
+            onReferIntroduction={handleReferIntroduction} 
+            introductionReferrals={introductionReferrals}
+            onSaveCustomer={handleSaveCustomer}
+        />;
       // FIX: Removed unused HR page cases.
       default:
         return <DashboardPage users={users} customers={customers} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} referrals={referrals} />;

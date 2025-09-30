@@ -6,6 +6,7 @@ import Avatar from './Avatar';
 import { toPersianDigits } from '../utils/dateFormatter';
 import { TrashIcon } from './icons/TrashIcon';
 import ConfirmationModal from './ConfirmationModal';
+import { LinkIcon } from './icons/LinkIcon';
 
 interface IntroductionCardProps {
   introduction: CustomerIntroduction;
@@ -24,41 +25,57 @@ const statusConfig: Record<CustomerIntroductionStatus, { label: string; color: s
   'ناموفق': { label: 'ناموفق', color: 'bg-red-100 text-red-700', ringColor: 'ring-red-500' },
 };
 
+const statusOptions: CustomerIntroductionStatus[] = ['جدید', 'در حال پیگیری', 'موفق', 'ناموفق'];
+
+
 const IntroductionCard: React.FC<IntroductionCardProps> = ({ introduction, users, currentUser, onEdit, onRefer, onStatusChange, onDelete }) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   
   const introducer = users.find(u => u.username === introduction.introducerUsername);
   const assignee = users.find(u => u.username === introduction.assignedToUsername);
 
-  const canEdit = currentUser.username === introduction.introducerUsername || currentUser.username === introduction.assignedToUsername;
+  const canEdit = currentUser.username === introduction.introducerUsername || currentUser.username === introduction.assignedToUsername || currentUser.role === 'مدیر';
+  const canDelete = currentUser.role === 'مدیر';
   
   const handleDelete = () => {
       onDelete(introduction.id);
       setIsConfirmOpen(false);
   }
 
+  const isFinalState = introduction.status === 'موفق' || introduction.status === 'ناموفق';
+
   return (
     <>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200/80 flex flex-col justify-between">
+      <div className={`bg-white rounded-lg shadow-sm border flex flex-col justify-between ${introduction.linkedCustomerId ? 'border-green-400 ring-2 ring-green-200' : 'border-gray-200/80'}`}>
         <div className="p-5">
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-start gap-2">
             <div>
-              <h3 className="text-xl font-bold text-slate-800">{introduction.customerName}</h3>
+              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                {introduction.customerName}
+                {introduction.linkedCustomerId && <LinkIcon className="h-4 w-4 text-green-500" title="به مشتری متصل شده است" />}
+              </h3>
               <p className="text-sm text-gray-500">{introduction.keyPersonName} ({introduction.position})</p>
             </div>
-            <select 
-              value={introduction.status}
-              onChange={(e) => onStatusChange(e.target.value as CustomerIntroductionStatus)}
-              className={`text-xs font-bold rounded-full border-none focus:ring-2 focus:ring-offset-2 ${statusConfig[introduction.status].color} ${statusConfig[introduction.status].ringColor}`}
-            >
-              {(Object.keys(statusConfig) as CustomerIntroductionStatus[]).map(s => <option key={s} value={s}>{statusConfig[s].label}</option>)}
-            </select>
+            {isFinalState ? (
+                <span className={`text-xs font-bold rounded-full px-3 py-1 flex-shrink-0 ${statusConfig[introduction.status].color}`}>
+                    {statusConfig[introduction.status].label}
+                </span>
+            ) : (
+                <select 
+                    value={introduction.status}
+                    onChange={(e) => onStatusChange(e.target.value as CustomerIntroductionStatus)}
+                    className={`text-xs font-bold rounded-full border-none focus:ring-2 focus:ring-offset-2 cursor-pointer ${statusConfig[introduction.status].color} ${statusConfig[introduction.status].ringColor}`}
+                >
+                    {statusOptions.filter(s => s !== 'موفق').map(s => <option key={s} value={s}>{statusConfig[s].label}</option>)}
+                     <option value='موفق'>&#10003; بستن کارت (موفق)</option>
+                </select>
+            )}
           </div>
 
           <div className="mt-4 space-y-3 text-sm text-gray-700">
             <p><strong className="font-semibold">تماس:</strong> <span className="font-mono">{toPersianDigits(introduction.contactNumber)}</span></p>
             <p><strong className="font-semibold">نیاز اصلی:</strong> {introduction.mainNeed}</p>
-            <p><strong className="font-semibold">نحوه آشنایی:</strong> {introduction.acquaintanceDetails}</p>
+            <p className="truncate" title={introduction.acquaintanceDetails}><strong className="font-semibold">نحوه آشنایی:</strong> {introduction.acquaintanceDetails}</p>
             <p><strong className="font-semibold">تاریخ معرفی:</strong> <span className="font-mono">{toPersianDigits(introduction.introductionDate)}</span></p>
           </div>
         </div>
@@ -74,14 +91,16 @@ const IntroductionCard: React.FC<IntroductionCardProps> = ({ introduction, users
           </div>
           <div className="flex items-center gap-1">
             {canEdit && (
-              <button onClick={() => onEdit(introduction)} className="p-2 text-yellow-500 hover:text-yellow-600 rounded-full hover:bg-yellow-100 transition-colors" title="ویرایش">
+              <button onClick={() => onEdit(introduction)} className="p-2 text-yellow-500 hover:text-yellow-600 rounded-full hover:bg-yellow-100 transition-colors" title="ویرایش/مشاهده جزئیات">
                   <EditIcon />
               </button>
             )}
-            <button onClick={() => onRefer(introduction)} className="p-2 text-blue-500 hover:text-blue-600 rounded-full hover:bg-blue-100 transition-colors" title="ارجاع به همکار">
-              <UserCheckIcon />
-            </button>
-            {currentUser.role === 'مدیر' && (
+            {!isFinalState && (
+                <button onClick={() => onRefer(introduction)} className="p-2 text-blue-500 hover:text-blue-600 rounded-full hover:bg-blue-100 transition-colors" title="ارجاع به همکار">
+                  <UserCheckIcon />
+                </button>
+            )}
+            {canDelete && (
               <button onClick={() => setIsConfirmOpen(true)} className="p-2 text-red-500 hover:text-red-600 rounded-full hover:bg-red-100 transition-colors" title="حذف">
                 <TrashIcon />
               </button>

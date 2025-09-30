@@ -9,6 +9,8 @@ import { PaperClipIcon } from './icons/PaperClipIcon';
 import ReferralHistoryTimeline from './ReferralHistoryTimeline';
 import SearchableSelect from './SearchableSelect';
 import ConfirmationModal from './ConfirmationModal';
+import { supabase, BUCKET_NAME } from '../supabaseClient';
+import { LoadingSpinnerIcon } from './icons/LoadingSpinnerIcon';
 
 interface TicketFormModalProps {
   isOpen: boolean;
@@ -60,6 +62,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   const [newAttachments, setNewAttachments] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [confirmationData, setConfirmationData] = useState<Ticket | Omit<Ticket, 'id'> | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const isReadOnly = ticket 
     ? (
@@ -129,16 +132,48 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
       e.target.value = ''; // Reset input to allow re-selecting the same file
   };
 
-  const handleRemoveAttachment = (nameToRemove: string) => {
-      const isNew = newAttachments.some(f => f.name === nameToRemove);
-      if (isNew) {
-        setNewAttachments(prev => prev.filter(f => f.name !== nameToRemove));
-      } else {
+  const handleRemoveAttachment = (itemToRemove: string) => {
+    // If it's a URL, remove from formData.attachments
+    if (itemToRemove.startsWith('http')) {
         setFormData(prev => ({
-          ...prev,
-          attachments: prev.attachments.filter(name => name !== nameToRemove)
+            ...prev,
+            attachments: prev.attachments.filter(url => url !== itemToRemove)
         }));
-      }
+    } else { // It's a file name from newAttachments
+        setNewAttachments(prev => prev.filter(f => f.name !== itemToRemove));
+    }
+  };
+  
+  const handleFinalSave = async (dataToProcess: Ticket | Omit<Ticket, 'id'>) => {
+    if (isReadOnly || isUploading) return;
+    setIsUploading(true);
+    setErrors([]);
+    try {
+        const uploadedUrls: string[] = [];
+        if (newAttachments.length > 0) {
+            const ticketIdForPath = 'ticketNumber' in dataToProcess && dataToProcess.ticketNumber ? dataToProcess.ticketNumber : `new-${Date.now()}`;
+            for (const file of newAttachments) {
+                const filePath = `tickets/${ticketIdForPath}/${Date.now()}-${file.name}`;
+                const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file);
+                if (uploadError) throw new Error(`خطا در آپلود فایل ${file.name}: ${uploadError.message}`);
+                
+                const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+                if (!data.publicUrl) throw new Error(`Could not get public URL for ${file.name}`);
+                uploadedUrls.push(data.publicUrl);
+            }
+        }
+        
+        const finalData = {
+            ...dataToProcess,
+            lastUpdateDate: formatJalaaliDateTime(new Date()),
+            attachments: [...dataToProcess.attachments, ...uploadedUrls]
+        };
+        onSave(finalData);
+    } catch (error: any) {
+        setErrors([error.message || 'یک خطای ناشناخته رخ داد.']);
+    } finally {
+        setIsUploading(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -155,16 +190,9 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
     
     // Final validation layer to guarantee priority is correct before saving.
     const validPriorities: TicketPriority[] = ['کم', 'متوسط', 'اضطراری'];
-    const finalPriority = validPriorities.includes(formData.priority)
-        ? formData.priority
-        : 'متوسط'; // Default to a safe value if something went wrong
+    const finalPriority = validPriorities.includes(formData.priority) ? formData.priority : 'متوسط';
 
-    const dataToSave = {
-        ...formData,
-        priority: finalPriority, // Use the validated priority
-        lastUpdateDate: formatJalaaliDateTime(new Date()),
-        attachments: [...formData.attachments, ...newAttachments.map(f => f.name)],
-    };
+    const dataToSave = { ...formData, priority: finalPriority };
 
     // Check for support contract only when creating a new ticket
     if (!ticket && formData.customerId) {
@@ -173,22 +201,22 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         );
 
         if (!hasActiveContract) {
-            setConfirmationData(dataToSave); // Show confirmation modal instead of saving
-            return; // Stop the saving process here
+            setConfirmationData(dataToSave);
+            return;
         }
     }
     
-    onSave(dataToSave);
+    handleFinalSave(dataToSave);
   };
 
   const handleConfirmSave = () => {
     if (confirmationData) {
-        onSave(confirmationData);
+        handleFinalSave(confirmationData);
     }
-    setConfirmationData(null); // Close confirmation modal
+    setConfirmationData(null);
   };
   
-  const allAttachmentNames = [...formData.attachments, ...newAttachments.map(f => f.name)];
+  const allAttachments = [...formData.attachments, ...newAttachments.map(f => f.name)];
   
   const searchableOptions = useMemo(() => {
     const customerOptions = customers.map(c => {
@@ -290,23 +318,23 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
                 <label className={labelClass}>فایل‌های پیوست (عکس یا PDF، حداکثر ۵۰۰ کیلوبایت)</label>
                 {!isReadOnly && (
                   <div className="mt-2 mb-4">
-                    <input type="file" id="file-upload" multiple accept="image/*,application/pdf" onChange={handleFileChange} className="hidden" />
-                    <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium">
+                    <input type="file" id="file-upload" multiple accept="image/*,application/pdf" onChange={handleFileChange} className="hidden" disabled={isUploading} />
+                    <label htmlFor="file-upload" className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium ${isUploading ? 'cursor-not-allowed opacity-50' : ''}`}>
                       <FileUploadIcon />
                       <span>افزودن فایل</span>
                     </label>
                   </div>
                 )}
-                {allAttachmentNames.length > 0 ? (
+                {allAttachments.length > 0 ? (
                   <div className="mt-4 border rounded-md p-3 bg-gray-50 max-h-40 overflow-y-auto space-y-2">
-                      {allAttachmentNames.map((name, index) => (
-                        <div key={`${name}-${index}`} className="flex items-center justify-between p-2 bg-white border rounded-md text-sm">
+                      {allAttachments.map((item, index) => (
+                        <div key={`${item}-${index}`} className="flex items-center justify-between p-2 bg-white border rounded-md text-sm">
                           <div className="flex items-center gap-2 text-slate-700 truncate">
                               <PaperClipIcon />
-                              <span className="truncate">{name}</span>
+                              <span className="truncate">{item.startsWith('http') ? new URL(item).pathname.split('/').pop() : item}</span>
                           </div>
                           {!isReadOnly && (
-                            <button type="button" onClick={() => handleRemoveAttachment(name)} className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 transition-colors">
+                            <button type="button" onClick={() => handleRemoveAttachment(item)} className="p-1 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100 transition-colors">
                               <TrashIcon />
                             </button>
                           )}
@@ -331,12 +359,12 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
 
           <div className="p-4 bg-gray-50 border-t flex justify-end items-center">
               <div className="flex gap-3">
-                  <button type="button" onClick={onClose} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100">
+                  <button type="button" onClick={onClose} disabled={isUploading} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 disabled:bg-gray-200">
                       {isReadOnly ? 'بستن' : 'انصراف'}
                   </button>
                   {!isReadOnly && (
-                      <button type="submit" className="px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700">
-                          {ticket ? 'ذخیره تغییرات' : 'ایجاد تیکت'}
+                      <button type="submit" disabled={isUploading} className="px-4 py-2 w-32 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 flex justify-center items-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-white disabled:bg-gray-400">
+                         {isUploading ? <LoadingSpinnerIcon /> : (ticket ? 'ذخیره تغییرات' : 'ایجاد تیکت')}
                       </button>
                   )}
               </div>

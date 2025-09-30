@@ -99,29 +99,15 @@ const PurchaseContracts: React.FC<PurchaseContractsProps> = ({ contracts, users,
   const allOnPageSelected = paginatedContracts.length > 0 && paginatedContracts.every(c => selectedIds.includes(c.id));
 
   return (
-    <section className="flex flex-col flex-1 min-h-0">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">قرارداد های فروش</h1>
-          <p className="text-gray-500 mt-1">قراردادهای فروش به مشتریان را مدیریت کنید.</p>
-        </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 bg-cyan-600 text-white font-semibold rounded-lg hover:bg-cyan-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-50"
-        >
-          <PlusIcon />
-          <span>قرارداد جدید</span>
-        </button>
-      </div>
-
-      <div className="mt-8 flex flex-col flex-1">
+    <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1">
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-4">
                <input
                   type="text"
                   placeholder="جستجوی قرارداد (شناسه، نام مشتری)..."
                   value={searchTerm}
                   onChange={handleSearchChange}
-                  className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
+                  className="w-full sm:w-auto sm:max-w-xs bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
               />
               {currentUser.role === 'مدیر' && selectedIds.length > 0 && (
                 <button
@@ -132,6 +118,14 @@ const PurchaseContracts: React.FC<PurchaseContractsProps> = ({ contracts, users,
                   <span>حذف ({toPersianDigits(selectedIds.length)}) مورد</span>
                 </button>
               )}
+              <div className="flex-grow"></div>
+              <button
+                onClick={() => handleOpenModal()}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 bg-cyan-600 text-white font-semibold rounded-lg hover:bg-cyan-700 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-50"
+              >
+                <PlusIcon />
+                <span>قرارداد فروش جدید</span>
+              </button>
           </div>
           <div className="flex items-center lg:hidden mb-4">
               <input 
@@ -181,7 +175,7 @@ const PurchaseContracts: React.FC<PurchaseContractsProps> = ({ contracts, users,
           title="تایید حذف"
           message={itemToDelete ? `آیا از حذف این قرارداد اطمینان دارید؟` : `آیا از حذف ${toPersianDigits(itemsToDelete?.length || 0)} قرارداد انتخاب شده اطمینان دارید؟`}
         />
-    </section>
+    </div>
   );
 };
 
