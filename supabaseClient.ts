@@ -5,6 +5,6 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 // نام باکت (bucket) برای ذخیره پیوست‌ها
 // نکته: این باکت باید در داشبورد Supabase شما به صورت دستی ایجاد شده و روی حالت "Public" تنظیم شده باشد.
-export const BUCKET_NAME = 'public';
+export const BUCKET_NAME = 'attachments';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

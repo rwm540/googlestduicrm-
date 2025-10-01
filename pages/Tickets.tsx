@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Ticket, Customer, User, Referral, SupportContract } from '../types';
+import { Ticket, Customer, User, Referral, SupportContract, TicketStatus } from '../types';
 import TicketTable from '../components/TicketTable';
 import TicketFormModal from '../components/TicketFormModal';
 import { PlusIcon } from '../components/icons/PlusIcon';
@@ -8,6 +9,9 @@ import ReferTicketModal from '../components/ReferTicketModal';
 import { toPersianDigits } from '../utils/dateFormatter';
 import Pagination from '../components/Pagination';
 import { UserCheckIcon } from '../components/icons/UserCheckIcon';
+import { TrashIcon } from '../components/icons/TrashIcon';
+import { CheckCircleIcon } from '../components/icons/CheckCircleIcon';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 interface TicketsProps {
   tickets: Ticket[];
@@ -19,6 +23,8 @@ interface TicketsProps {
   onReferTicket: (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => void;
   onToggleWork: (ticketId: number) => void;
   onDeleteTicket: (ticketId: number) => void;
+  onDeleteManyTickets: (ticketIds: number[]) => void;
+  onSetStatusManyTickets: (ticketIds: number[], status: TicketStatus) => void;
   onReopenTicket: (ticketId: number) => void;
   onExtendEditTime: (ticketId: number) => void;
   currentUser: User;
@@ -26,7 +32,7 @@ interface TicketsProps {
 
 const ITEMS_PER_PAGE = 10;
 
-const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser, supportContracts, onDeleteTicket, onReopenTicket, onExtendEditTime }) => {
+const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users, onSave, onReferTicket, onToggleWork, currentUser, supportContracts, onDeleteTicket, onReopenTicket, onExtendEditTime, onDeleteManyTickets, onSetStatusManyTickets }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -36,6 +42,8 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   const [showCompleted, setShowCompleted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isCompleteConfirmOpen, setIsCompleteConfirmOpen] = useState(false);
   
   const referredTicketIds = useMemo(() => new Set(referrals.map(r => r.ticket.id)), [referrals]);
 
@@ -86,6 +94,18 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
+  };
+
+  const handleConfirmDeleteMany = () => {
+    onDeleteManyTickets(selectedIds);
+    setIsDeleteConfirmOpen(false);
+    setSelectedIds([]);
+  };
+
+  const handleConfirmCompleteMany = () => {
+    onSetStatusManyTickets(selectedIds, 'اتمام یافته');
+    setIsCompleteConfirmOpen(false);
+    setSelectedIds([]);
   };
 
   const filteredTickets = useMemo(() => {
@@ -224,13 +244,35 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
               className="w-full max-w-sm bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"
             />
              {selectedIds.length > 0 && (
-                 <button 
-                    onClick={handleOpenGroupReferModal}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    <UserCheckIcon className="h-5 w-5" />
-                    <span>ارجاع ({toPersianDigits(selectedIds.length)}) مورد</span>
-                 </button>
+                 <div className="flex items-center gap-2 flex-wrap">
+                    {!showCompleted && (
+                        <>
+                            <button 
+                                onClick={handleOpenGroupReferModal}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm whitespace-nowrap"
+                            >
+                                <UserCheckIcon className="h-5 w-5" />
+                                <span>ارجاع ({toPersianDigits(selectedIds.length)}) مورد</span>
+                            </button>
+                            <button 
+                                onClick={() => setIsCompleteConfirmOpen(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap"
+                            >
+                                <CheckCircleIcon className="h-5 w-5" />
+                                <span>اتمام ({toPersianDigits(selectedIds.length)}) مورد</span>
+                            </button>
+                        </>
+                    )}
+                    {currentUser.role === 'مدیر' && (
+                        <button 
+                            onClick={() => setIsDeleteConfirmOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors text-sm whitespace-nowrap"
+                        >
+                            <TrashIcon />
+                            <span>حذف ({toPersianDigits(selectedIds.length)}) مورد</span>
+                        </button>
+                    )}
+                 </div>
             )}
           </div>
           <div className="flex items-center lg:hidden mb-4">
@@ -296,6 +338,24 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
           tickets={referringTickets}
           users={users}
           currentUser={currentUser}
+        />
+        <ConfirmationModal
+            isOpen={isDeleteConfirmOpen}
+            onClose={() => setIsDeleteConfirmOpen(false)}
+            onConfirm={handleConfirmDeleteMany}
+            title="تایید حذف گروهی"
+            message={`آیا از حذف ${toPersianDigits(selectedIds.length)} تیکت انتخاب شده اطمینان دارید؟ این عمل قابل بازگشت نیست.`}
+            confirmText="بله، حذف کن"
+            confirmButtonColor="bg-red-600 hover:bg-red-700"
+        />
+        <ConfirmationModal
+            isOpen={isCompleteConfirmOpen}
+            onClose={() => setIsCompleteConfirmOpen(false)}
+            onConfirm={handleConfirmCompleteMany}
+            title="تایید اتمام گروهی"
+            message={`آیا از اتمام ${toPersianDigits(selectedIds.length)} تیکت انتخاب شده اطمینان دارید؟`}
+            confirmText="بله، اتمام"
+            confirmButtonColor="bg-green-600 hover:bg-green-700"
         />
       </main>
     </div>

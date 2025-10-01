@@ -153,7 +153,7 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
         if (newAttachments.length > 0) {
             const ticketIdForPath = 'ticketNumber' in dataToProcess && dataToProcess.ticketNumber ? dataToProcess.ticketNumber : `new-${Date.now()}`;
             for (const file of newAttachments) {
-                const filePath = `tickets/${ticketIdForPath}/${Date.now()}-${file.name}`;
+                const filePath = `${ticketIdForPath}/${Date.now()}-${file.name}`;
                 const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file);
                 if (uploadError) throw new Error(`خطا در آپلود فایل ${file.name}: ${uploadError.message}`);
                 

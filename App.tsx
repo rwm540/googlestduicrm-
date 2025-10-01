@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Added CustomerIntroduction type for the new feature.
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, TicketStatus, CustomerIntroduction, IntroductionReferral } from './types';
 import api from './src/api';
-import { supabase } from './supabaseClient';
+import { supabase, BUCKET_NAME } from './supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Components and Pages
@@ -92,6 +93,10 @@ const App: React.FC = () => {
   const [introductionReferralTableExists, setIntroductionReferralTableExists] = useState(true);
   // FIX: Removed unused HR data states.
   
+  // FIX: Add refs to track changes in dependencies for ticket scoring effect.
+  const prevCustomersRef = useRef<Customer[]>();
+  const prevSupportContractsRef = useRef<SupportContract[]>();
+
   const addAlert = useCallback((messages: string[], type: 'error' | 'success') => {
     setAlerts(prev => [...prev, { id: Date.now() + Math.random(), messages, type }]);
   }, []);
@@ -244,6 +249,23 @@ const App: React.FC = () => {
     };
     performInitialFetch();
   }, [currentUser, fetchAllData]);
+  
+  // FIX: This effect re-scores and re-sorts all tickets whenever the underlying data
+  // (customers or support contracts) changes. This ensures ticket scores are always up-to-date.
+  useEffect(() => {
+    // Don't run on initial load or while another process is running, as data is still changing.
+    if (isLoading || isProcessing) return;
+    
+    // Check if the dependencies have actually changed since the last run to prevent infinite loops.
+    if (prevCustomersRef.current !== customers || prevSupportContractsRef.current !== supportContracts) {
+        setTickets(currentTickets => sortAndScoreTickets(currentTickets));
+    }
+
+    // Update the refs for the next render.
+    prevCustomersRef.current = customers;
+    prevSupportContractsRef.current = supportContracts;
+  }, [customers, supportContracts, isLoading, isProcessing]);
+
 
    useEffect(() => {
     const handleResize = () => {
@@ -530,6 +552,8 @@ const App: React.FC = () => {
     options?: {
       sortAfterInsert?: (a: T, b: T) => number;
       onItemUpdate?: (item: T) => void;
+      // FIX: Add an onItemInsert callback to handle special logic for new items.
+      onItemInsert?: (item: T) => void;
     }
   ) => {
     const onSave = useCallback(async (data: T | Omit<T, 'id'>): Promise<T> => {
@@ -550,7 +574,12 @@ const App: React.FC = () => {
             } else {
                 const { data: newData } = await api.post(`/${endpoint}`, payload, { headers: { 'Prefer': 'return=representation' } });
                 savedItem = convertKeysToCamelCase(newData[0]);
-                setState(prev => [...prev.filter(item => item.id !== savedItem.id), savedItem].sort(options?.sortAfterInsert || (() => 0)));
+                // FIX: Use the new onItemInsert callback if provided.
+                if (options?.onItemInsert) {
+                    options.onItemInsert(savedItem);
+                } else {
+                    setState(prev => [...prev.filter(item => item.id !== savedItem.id), savedItem].sort(options?.sortAfterInsert || (() => 0)));
+                }
             }
             addAlert([`${entityName} با موفقیت ${isEditing ? 'ویرایش' : 'ذخیره'} شد.`], 'success');
             return savedItem;
@@ -587,9 +616,9 @@ const App: React.FC = () => {
 
     return { onSave, onDelete, onDeleteMany };
   };
-
+  
   const { onSave: handleSaveCustomer, onDelete: handleDeleteCustomer, onDeleteMany: handleDeleteManyCustomers } = useGenericCrudHandlers<Customer>('مشتری', 'customers', setCustomers);
-  const { onSave: handleSavePurchaseContract, onDelete: handleDeletePurchaseContract, onDeleteMany: handleDeleteManyPurchaseContracts } = useGenericCrudHandlers<PurchaseContract>('قرارداد فروش', 'purchase_contracts', setPurchaseContracts);
+  
   const { onSave: handleSaveSupportContract, onDelete: handleDeleteSupportContract, onDeleteMany: handleDeleteManySupportContracts } = useGenericCrudHandlers<SupportContract>('قرارداد پشتیبانی', 'support_contracts', setSupportContracts);
   const { onSave: handleSaveIntroduction, onDelete: handleDeleteIntroduction } = useGenericCrudHandlers<CustomerIntroduction>(
     'معرفی مشتری', 
@@ -642,11 +671,20 @@ const App: React.FC = () => {
     }
   }, [currentUser, addAlert, introductionReferralTableExists]);
   
-  const { onSave: handleGenericTicketSave, onDelete: handleDeleteTicket } = useGenericCrudHandlers<Ticket>(
+  // FIX: Add a specific handler for ticket insertion to ensure scoring and sorting.
+  const handleInsertTicket = useCallback((newTicket: Ticket) => {
+    setTickets(prev => sortAndScoreTickets([ ...prev.filter(t => t.id !== newTicket.id), newTicket ]));
+  }, [sortAndScoreTickets]);
+
+  const { onSave: handleGenericTicketSave } = useGenericCrudHandlers<Ticket>(
     'تیکت', 
     'tickets', 
     setTickets, 
-    { onItemUpdate: updateTicketInState }
+    { 
+        onItemUpdate: updateTicketInState,
+        // FIX: Use the new custom insert handler.
+        onItemInsert: handleInsertTicket,
+    }
   );
 
   const handleSaveTicket = useCallback(async (ticketData: (Ticket | Omit<Ticket, 'id'>) & { score?: number }) => {
@@ -659,10 +697,9 @@ const App: React.FC = () => {
 
         if (!isEditing) {
             const now = new Date();
-            const lastTicketNumber = tickets.reduce((max, t) => Math.max(max, parseInt(t.ticketNumber.split('-')[1], 10) || 0), 0);
             payload = {
                 ...payload,
-                ticketNumber: `T-${lastTicketNumber + 1}`,
+                ticketNumber: `new-${Date.now()}`, // Consistent name for folder and ticket number initially
                 creationDateTime: formatJalaaliDateTime(now),
                 lastUpdateDate: formatJalaaliDateTime(now),
                 editableUntil: new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
@@ -674,8 +711,123 @@ const App: React.FC = () => {
 
     } catch (error: any) {
     } finally { setIsProcessing(false); }
-  }, [tickets, handleGenericTicketSave]);
+  }, [handleGenericTicketSave]);
   
+  const handleDeleteTicket = useCallback(async (ticketId: number) => {
+    setIsProcessing(true);
+    try {
+        const ticketToDelete = tickets.find(t => t.id === ticketId);
+
+        if (ticketToDelete && ticketToDelete.attachments && ticketToDelete.attachments.length > 0) {
+            const firstUrl = ticketToDelete.attachments[0];
+            const urlParts = firstUrl.split(`/${BUCKET_NAME}/`);
+            if (urlParts.length > 1) {
+                const firstPath = decodeURIComponent(urlParts[1].split('?')[0]);
+                const folderPath = firstPath.substring(0, firstPath.lastIndexOf('/'));
+
+                if (folderPath) {
+                    const { data: allFiles, error: listError } = await supabase.storage.from(BUCKET_NAME).list(folderPath);
+                    if (allFiles && !listError && allFiles.length > 0) {
+                        const allFilePaths = allFiles.map(f => `${folderPath}/${f.name}`);
+                        const { error: removeError } = await supabase.storage.from(BUCKET_NAME).remove(allFilePaths);
+                        if (removeError) {
+                           console.error(`Could not delete files for folder ${folderPath}:`, removeError);
+                        }
+                    }
+                }
+            }
+        }
+        
+        await api.delete(`/referrals?ticket_id=eq.${ticketId}`);
+        await api.delete(`/tickets?id=eq.${ticketId}`);
+
+        setTickets(prev => prev.filter(t => t.id !== ticketId));
+        setReferrals(prev => prev.filter(r => r.ticketId !== ticketId));
+        
+        addAlert(['تیکت با موفقیت حذف شد.'], 'success');
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.message || error.message;
+        addAlert(['خطا در حذف تیکت.', errorMessage], 'error');
+    } finally { setIsProcessing(false); }
+  }, [tickets, referrals, addAlert]);
+
+  const { onSave: handleSavePurchaseContract } = useGenericCrudHandlers<PurchaseContract>('قرارداد فروش', 'purchase_contracts', setPurchaseContracts);
+
+  const handleDeletePurchaseContract = useCallback(async (contractId: number) => {
+    setIsProcessing(true);
+    try {
+        const contractToDelete = purchaseContracts.find(c => c.id === contractId);
+        if (contractToDelete && contractToDelete.contractId) {
+            const folderPath = contractToDelete.contractId;
+            const { data: files, error: listError } = await supabase.storage
+                .from(BUCKET_NAME)
+                .list(folderPath);
+
+            if (listError && listError.message !== 'The resource was not found') {
+                console.error(`Failed to list files for contract ${folderPath}:`, listError);
+            } else if (files && files.length > 0) {
+                const filePaths = files.map(file => `${folderPath}/${file.name}`);
+                try {
+                    const { error: removeError } = await supabase.storage.from(BUCKET_NAME).remove(filePaths);
+                    if (removeError) throw removeError;
+                } catch (storageError) {
+                    console.error("Failed to delete contract attachments, proceeding with DB deletion:", storageError);
+                }
+            }
+        }
+
+        await api.delete(`/purchase_contracts?id=eq.${contractId}`);
+        setPurchaseContracts(prev => prev.filter(c => c.id !== contractId));
+        addAlert([`قرارداد فروش با موفقیت حذف شد.`], 'success');
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.message || error.message;
+        addAlert([`خطا در حذف قرارداد فروش.`, errorMessage], 'error');
+    } finally { setIsProcessing(false); }
+  }, [purchaseContracts, addAlert]);
+  
+  const handleDeleteManyPurchaseContracts = useCallback(async (contractIds: number[]) => {
+    setIsProcessing(true);
+    try {
+        const contractsToDelete = purchaseContracts.filter(c => contractIds.includes(c.id));
+        if (contractsToDelete.length === 0) {
+            setIsProcessing(false);
+            return;
+        }
+
+        for (const contract of contractsToDelete) {
+             if (contract && contract.contractId) {
+                const folderPath = contract.contractId;
+                const { data: files, error: listError } = await supabase.storage
+                    .from(BUCKET_NAME)
+                    .list(folderPath);
+
+                if (listError && listError.message !== 'The resource was not found') {
+                    console.error(`Failed to list files for contract ${folderPath}:`, listError);
+                } else if (files && files.length > 0) {
+                    const filePaths = files.map(file => `${folderPath}/${file.name}`);
+                    try {
+                       const { error: removeError } = await supabase.storage.from(BUCKET_NAME).remove(filePaths);
+                       if (removeError) {
+                           console.error(`Could not delete files for ${folderPath}:`, removeError);
+                           // Decide if you want to throw or just log
+                       }
+                    } catch (storageError) {
+                        console.error("A general error occurred deleting attachments for a contract, proceeding with DB deletion:", storageError);
+                    }
+                }
+            }
+        }
+        
+        await api.delete(`/purchase_contracts?id=in.(${contractIds.join(',')})`);
+        setPurchaseContracts(prev => prev.filter(c => !contractIds.includes(c.id)));
+        addAlert([`${toPersianDigits(contractIds.length)} قرارداد فروش با موفقیت حذف شدند.`], 'success');
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.message || error.message;
+        addAlert([`خطا در حذف گروهی قراردادهای فروش.`, errorMessage], 'error');
+    } finally { setIsProcessing(false); }
+  }, [purchaseContracts, addAlert]);
+
+
   const handleReferTicket = useCallback(async (ticketId: number, isFromReferral: boolean, referredBy: User, referredToUsername: string) => {
     setIsProcessing(true);
     try {
@@ -756,6 +908,83 @@ const App: React.FC = () => {
       } finally { setIsProcessing(false); }
   }, [updateTicketInState, addAlert]);
   
+  const handleDeleteManyTickets = useCallback(async (ticketIds: number[]) => {
+    setIsProcessing(true);
+    try {
+      const ticketsToDelete = tickets.filter(t => ticketIds.includes(t.id));
+      if (ticketsToDelete.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+
+      for (const ticket of ticketsToDelete) {
+         if (ticket && ticket.attachments && ticket.attachments.length > 0) {
+            const firstUrl = ticket.attachments[0];
+            const urlParts = firstUrl.split(`/${BUCKET_NAME}/`);
+            if (urlParts.length > 1) {
+                const firstPath = decodeURIComponent(urlParts[1].split('?')[0]);
+                const folderPath = firstPath.substring(0, firstPath.lastIndexOf('/'));
+
+                if (folderPath) {
+                    const { data: allFiles, error: listError } = await supabase.storage.from(BUCKET_NAME).list(folderPath);
+                    if (allFiles && !listError && allFiles.length > 0) {
+                        const allFilePaths = allFiles.map(f => `${folderPath}/${f.name}`);
+                        const { error: removeError } = await supabase.storage.from(BUCKET_NAME).remove(allFilePaths);
+                        if (removeError) {
+                            console.error(`Could not delete files for folder ${folderPath}:`, removeError);
+                        }
+                    }
+                }
+            }
+         }
+      }
+
+      const idsQuery = `in.(${ticketIds.join(',')})`;
+      await api.delete(`/referrals?ticket_id=${idsQuery}`);
+      await api.delete(`/tickets?id=${idsQuery}`);
+      
+      setTickets(prev => prev.filter(t => !ticketIds.includes(t.id)));
+      setReferrals(prev => prev.filter(r => !ticketIds.includes(r.ticketId)));
+
+      addAlert([`${toPersianDigits(ticketIds.length)} تیکت با موفقیت حذف شدند.`], 'success');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'یک خطای ناشناخته رخ داد.';
+      addAlert(['خطا در حذف گروهی تیکت‌ها.', errorMessage], 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [tickets, referrals, addAlert]);
+
+  const handleSetStatusManyTickets = useCallback(async (ticketIds: number[], status: TicketStatus) => {
+    setIsProcessing(true);
+    try {
+        const idsQuery = `in.(${ticketIds.join(',')})`;
+        const payload = {
+            status,
+            work_session_started_at: null,
+            last_update_date: formatJalaaliDateTime(new Date())
+        };
+
+        const { data: updatedTicketsData } = await api.patch(`/tickets?id=${idsQuery}`, convertKeysToSnakeCase(payload), { headers: { 'Prefer': 'return=representation' } });
+        
+        // FIX: Add explicit type annotation to resolve type inference issues.
+        const updatedTickets: Ticket[] = convertKeysToCamelCase(updatedTicketsData);
+        const updatedTicketMap = new Map(updatedTickets.map((t: Ticket) => [t.id, t]));
+        
+        setTickets(prev => sortAndScoreTickets(prev.map(t => updatedTicketMap.get(t.id) || t)));
+
+        setReferrals(prev => prev.map(r => {
+            const updatedTicket = updatedTickets.find((t: Ticket) => t.id === r.ticket.id);
+            return updatedTicket ? { ...r, ticket: updatedTicket } : r;
+        }));
+        
+        addAlert([`${toPersianDigits(ticketIds.length)} تیکت با موفقیت به وضعیت "${status}" تغییر یافت.`], 'success');
+    } catch (error: any) { 
+        const errorMessage = error.response?.data?.message || error.message || 'یک خطای ناشناخته رخ داد.';
+        addAlert(['خطا در تغییر وضعیت گروهی تیکت‌ها.', errorMessage], 'error');
+    } finally { setIsProcessing(false); }
+  }, [addAlert, sortAndScoreTickets]);
+
   // --- END CRUD Handlers ---
 
   const renderPage = () => {
@@ -784,7 +1013,7 @@ const App: React.FC = () => {
             />
         );
       case 'tickets':
-        return <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} onReopenTicket={handleReopenTicket} onExtendEditTime={handleExtendEditTime} currentUser={currentUser} />;
+        return <Tickets tickets={tickets} referrals={referrals} customers={customers} users={users} supportContracts={supportContracts} onSave={handleSaveTicket} onReferTicket={handleReferTicket} onToggleWork={handleToggleWork} onDeleteTicket={handleDeleteTicket} onReopenTicket={handleReopenTicket} onExtendEditTime={handleExtendEditTime} currentUser={currentUser} onDeleteManyTickets={handleDeleteManyTickets} onSetStatusManyTickets={handleSetStatusManyTickets} />;
       case 'reports':
         return <ReportsPage customers={customers} users={users} purchaseContracts={purchaseContracts} supportContracts={supportContracts} tickets={tickets} currentUser={currentUser} />;
       case 'referrals':

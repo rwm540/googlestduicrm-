@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const LinkIcon: React.FC<{ className?: string }> = ({ className }) => (
+export const LinkIcon: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     className={className || "h-5 w-5"}
@@ -9,6 +9,8 @@ export const LinkIcon: React.FC<{ className?: string }> = ({ className }) => (
     stroke="currentColor"
     strokeWidth={2}
   >
+    {/* FIX: Add title element for accessibility and to display tooltip */}
+    {title && <title>{title}</title>}
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
