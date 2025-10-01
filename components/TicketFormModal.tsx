@@ -220,13 +220,21 @@ const TicketFormModal: React.FC<TicketFormModalProps> = ({ isOpen, onClose, onSa
   
   const searchableOptions = useMemo(() => {
     const customerOptions = customers.map(c => {
+      // A customer is considered "inactive" for support if their global status is inactive
+      // OR if they don't have at least one active support contract.
+      const isGloballyInactive = c.status === 'غیرفعال';
+      
       const hasActiveContract = supportContracts.some(
         sc => sc.customerId === c.id && getCalculatedStatus(sc.endDate, sc.status) === 'فعال'
       );
+  
+      const isEffectivelyInactive = isGloballyInactive || !hasActiveContract;
+  
       return {
         value: c.id,
         label: `${c.companyName} (${c.firstName} ${c.lastName})`,
-        className: !hasActiveContract ? 'text-red-600 font-semibold' : ''
+        // If inactive, apply red style. Otherwise, apply nothing.
+        className: isEffectivelyInactive ? 'text-red-600 font-semibold' : ''
       };
     });
 

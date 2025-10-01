@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Ticket, Customer, User, Referral, SupportContract, TicketStatus } from '../types';
 import TicketTable from '../components/TicketTable';
@@ -109,37 +108,31 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
   };
 
   const filteredTickets = useMemo(() => {
-    let sourceTickets: Ticket[];
+    // 1. Create a unified, unique list of all tickets from props, preserving scores.
+    const allTicketsMap = new Map<number, Ticket>();
+    tickets.forEach(ticket => allTicketsMap.set(ticket.id, ticket));
+    referrals.forEach(referral => {
+        if (referral.ticket) {
+            const existingTicket = allTicketsMap.get(referral.ticket.id);
+            allTicketsMap.set(referral.ticket.id, { 
+                ...referral.ticket, 
+                score: existingTicket?.score ?? referral.ticket.score 
+            });
+        }
+    });
+    let sourceTickets = Array.from(allTicketsMap.values());
 
-    // Start with a comprehensive list of all tickets for managers or in the 'completed' view.
-    if (showCompleted || currentUser.role === 'مدیر') {
-        const allTicketsMap = new Map<number, Ticket>();
-        tickets.forEach(ticket => allTicketsMap.set(ticket.id, ticket));
-        referrals.forEach(referral => allTicketsMap.set(referral.ticket.id, referral.ticket));
-        sourceTickets = Array.from(allTicketsMap.values());
+    // 2. KEY CHANGE: Hide all 'Referred' tickets from this page for ALL users.
+    sourceTickets = sourceTickets.filter(ticket => ticket.status !== 'ارجاع شده');
+
+    // 3. Filter by 'Completed' status based on the toggle.
+    if (showCompleted) {
+        sourceTickets = sourceTickets.filter(ticket => ticket.status === 'اتمام یافته');
     } else {
-        // Non-managers in the main view only see tickets from the primary list.
-        sourceTickets = [...tickets];
+        sourceTickets = sourceTickets.filter(ticket => ticket.status !== 'اتمام یافته');
     }
-
-    // Filter by status based on view and role
-    if (currentUser.role === 'مدیر') {
-      // Managers see all non-completed tickets (including referred) in the main view.
-      sourceTickets = sourceTickets.filter(ticket =>
-        showCompleted
-          ? ticket.status === 'اتمام یافته'
-          : ticket.status !== 'اتمام یافته'
-      );
-    } else {
-      // Non-managers see only active (not completed AND not referred) tickets.
-      sourceTickets = sourceTickets.filter(ticket =>
-        showCompleted 
-          ? ticket.status === 'اتمام یافته' 
-          : ticket.status !== 'اتمام یافته' && ticket.status !== 'ارجاع شده'
-      );
-    }
-
-    // Filter by user access rights for non-managers
+    
+    // 4. Filter by user access rights for non-managers.
     if (currentUser.role !== 'مدیر') {
       if (currentUser.role.startsWith('مسئول')) { // Is a department lead
         const department = currentUser.role.replace('مسئول ', '');
@@ -157,7 +150,7 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
       }
     }
 
-    // Filter by search term
+    // 5. Filter by search term.
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       sourceTickets = sourceTickets.filter(ticket => {
@@ -171,8 +164,17 @@ const Tickets: React.FC<TicketsProps> = ({ tickets, referrals, customers, users,
       });
     }
 
-    return sourceTickets;
-  }, [tickets, referrals, searchTerm, customers, showCompleted, currentUser, supportContracts, users]);
+    // 6. Re-sort the filtered list because map iteration order isn't guaranteed.
+    return sourceTickets.sort((a, b) => {
+        const scoreA = a.score ?? 999;
+        const scoreB = b.score ?? 999;
+        if (scoreA !== scoreB) {
+            return scoreA - scoreB;
+        }
+        return b.id - a.id; // Fallback to ID for stable sort
+    });
+
+  }, [tickets, referrals, searchTerm, customers, showCompleted, currentUser, users]);
 
 
   const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);

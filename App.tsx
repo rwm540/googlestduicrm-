@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Added CustomerIntroduction type for the new feature.
 import { User, Customer, PurchaseContract, SupportContract, Ticket, Referral, MenuItemId, TicketStatus, CustomerIntroduction, IntroductionReferral } from './types';
@@ -94,8 +95,10 @@ const App: React.FC = () => {
   // FIX: Removed unused HR data states.
   
   // FIX: Add refs to track changes in dependencies for ticket scoring effect.
-  const prevCustomersRef = useRef<Customer[]>();
-  const prevSupportContractsRef = useRef<SupportContract[]>();
+  // FIX: Provided an initial value to useRef to fix "Expected 1 arguments, but got 0" error.
+  const prevCustomersRef = useRef<Customer[] | undefined>(undefined);
+  // FIX: Provided an initial value to useRef to fix "Expected 1 arguments, but got 0" error.
+  const prevSupportContractsRef = useRef<SupportContract[] | undefined>(undefined);
 
   const addAlert = useCallback((messages: string[], type: 'error' | 'success') => {
     setAlerts(prev => [...prev, { id: Date.now() + Math.random(), messages, type }]);
@@ -277,7 +280,8 @@ const App: React.FC = () => {
     // Check if the dependencies have actually changed since the last run to prevent infinite loops.
     // FIX: Simplified state update and corrected function call.
     if (prevCustomersRef.current !== customers || prevSupportContractsRef.current !== supportContracts) {
-        setTickets(sortAndScoreTickets);
+        // FIX: Replaced problematic shorthand functional update with an explicit one to resolve error.
+        setTickets(currentTickets => sortAndScoreTickets(currentTickets));
     }
 
     // Update the refs for the next render.

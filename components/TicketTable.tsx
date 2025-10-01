@@ -113,7 +113,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, su
               <tr 
                 key={ticket.id} 
                 className={`border-b border-gray-200 transition-colors duration-200 ${
-                  !customerHasActiveContract ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50/50'
+                  !customerHasActiveContract ? 'bg-red-100 hover:bg-red-200' : 'hover:bg-slate-50/50'
                 }`}
               >
                 <td className="p-4 w-4">
@@ -170,7 +170,7 @@ const TicketTable: React.FC<TicketTableProps> = ({ tickets, customers, users, su
           const customerHasActiveContract = hasActiveSupportContract(ticket.customerId);
           return (
           <div key={ticket.id} className={`p-4 space-y-3 relative flex flex-col ${
-            !customerHasActiveContract ? 'bg-red-50' : 'bg-white'
+            !customerHasActiveContract ? 'bg-red-100' : 'bg-white'
           }`}>
              <div className="absolute top-4 left-4">
                 <input id={`checkbox-mobile-${ticket.id}`} type="checkbox" 
