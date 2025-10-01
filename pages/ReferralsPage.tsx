@@ -90,24 +90,31 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, tickets, curre
   const referredTickets = useMemo(() => {
     const ticketsMap = new Map(tickets.map(t => [t.id, t]));
 
-    let relevantReferrals;
+    let ticketsForDisplay: Ticket[];
 
     if (currentUser.role === 'مدیر') {
-        relevantReferrals = latestReferrals;
-    } else if (currentUser.role.startsWith('مسئول')) {
-        const department = currentUser.role.replace('مسئول ', '');
-        const specialistsInDept = users
-            .filter(user => user.role === `کارشناس ${department}`)
-            .map(user => user.username);
-        const departmentMembers = [currentUser.username, ...specialistsInDept];
-        relevantReferrals = latestReferrals.filter(r => departmentMembers.includes(r.referredToUsername));
-    } else { // Is a specialist
-        relevantReferrals = latestReferrals.filter(r => r.referredToUsername === currentUser.username);
+        // A manager should see ANY ticket that has ever been referred, as long as it's not completed.
+        const allReferredTicketIds = new Set(referrals.map(r => r.ticketId));
+        ticketsForDisplay = tickets.filter(t => allReferredTicketIds.has(t.id) && t.status !== 'اتمام یافته');
+    } else {
+        // Existing logic for leads and specialists
+        let relevantReferrals;
+        if (currentUser.role.startsWith('مسئول')) {
+            const department = currentUser.role.replace('مسئول ', '');
+            const specialistsInDept = users
+                .filter(user => user.role === `کارشناس ${department}`)
+                .map(user => user.username);
+            const departmentMembers = [currentUser.username, ...specialistsInDept];
+            relevantReferrals = latestReferrals.filter(r => departmentMembers.includes(r.referredToUsername));
+        } else { // Is a specialist
+            relevantReferrals = latestReferrals.filter(r => r.referredToUsername === currentUser.username);
+        }
+
+        ticketsForDisplay = relevantReferrals
+            .map(r => ticketsMap.get(r.ticketId))
+            .filter((t): t is Ticket => t !== undefined && t.status !== 'اتمام یافته');
     }
 
-    let ticketsForDisplay = relevantReferrals
-        .map(r => ticketsMap.get(r.ticketId))
-        .filter((t): t is Ticket => t !== undefined && t.status !== 'اتمام یافته');
 
     if (searchTerm) {
         const search = searchTerm.toLowerCase();
@@ -123,7 +130,7 @@ const ReferralsPage: React.FC<ReferralsPageProps> = ({ referrals, tickets, curre
 
     // The list is already sorted from App.tsx. Filtering preserves the order.
     return ticketsForDisplay;
-  }, [latestReferrals, tickets, currentUser, users, customers, searchTerm]);
+  }, [latestReferrals, referrals, tickets, currentUser, users, customers, searchTerm]);
 
   const totalPages = Math.ceil(referredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = referredTickets.slice(

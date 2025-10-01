@@ -250,35 +250,6 @@ const App: React.FC = () => {
     performInitialFetch();
   }, [currentUser, fetchAllData]);
   
-  // FIX: This effect re-scores and re-sorts all tickets whenever the underlying data
-  // (customers or support contracts) changes. This ensures ticket scores are always up-to-date.
-  useEffect(() => {
-    // Don't run on initial load or while another process is running, as data is still changing.
-    if (isLoading || isProcessing) return;
-    
-    // Check if the dependencies have actually changed since the last run to prevent infinite loops.
-    if (prevCustomersRef.current !== customers || prevSupportContractsRef.current !== supportContracts) {
-        setTickets(currentTickets => sortAndScoreTickets(currentTickets));
-    }
-
-    // Update the refs for the next render.
-    prevCustomersRef.current = customers;
-    prevSupportContractsRef.current = supportContracts;
-  }, [customers, supportContracts, isLoading, isProcessing]);
-
-
-   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsSidebarOpen(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
-    
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  
   // Centralized function for sorting and scoring tickets
   const sortAndScoreTickets = useCallback((ticketArr: Ticket[]) => {
     const scoredTickets = ticketArr.map(ticket => ({
@@ -296,6 +267,37 @@ const App: React.FC = () => {
     });
     return scoredTickets;
   }, [customers, supportContracts]);
+  
+  // FIX: This effect re-scores and re-sorts all tickets whenever the underlying data
+  // (customers or support contracts) changes. This ensures ticket scores are always up-to-date.
+  useEffect(() => {
+    // Don't run on initial load or while another process is running, as data is still changing.
+    if (isLoading || isProcessing) return;
+    
+    // Check if the dependencies have actually changed since the last run to prevent infinite loops.
+    // FIX: Simplified state update and corrected function call.
+    if (prevCustomersRef.current !== customers || prevSupportContractsRef.current !== supportContracts) {
+        setTickets(sortAndScoreTickets);
+    }
+
+    // Update the refs for the next render.
+    // FIX: Corrected assignment to ref's .current property.
+    prevCustomersRef.current = customers;
+    prevSupportContractsRef.current = supportContracts;
+  }, [customers, supportContracts, isLoading, isProcessing, sortAndScoreTickets]);
+
+
+   useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // A unified function to update a ticket across all relevant states and re-sort
   const updateTicketInState = useCallback((updatedTicket: Ticket) => {
